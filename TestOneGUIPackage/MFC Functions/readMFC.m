@@ -47,9 +47,18 @@ IN=fscanf(aliComm); %Read back tthe data
 OUT.ID  = cell2mat(OUT.ID) ;
 OUT.gas = cell2mat(OUT.gas);
 OUT.time = now;
-catch
+ specialArray = fieldnames(OUT);
+    for i = 2:numel(specialArray) - 2
+        if isempty(OUT.(specialArray{i}))
+            OUT.(specialArray{i}) = 0;
+        end
+    end
+    if isempty(OUT.ID)
+        OUT.ID = MFC;
+    end
+catch e
     if ~quiet
-    disp('Problem reading from serial port')
+        disp('Problem reading from serial port')
     end
     OUT = [];
     %OUT
