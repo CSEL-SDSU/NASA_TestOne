@@ -33,7 +33,7 @@ if ischar(odourConc)
         flow=calcFlow(flowRate,odourConc);
         flow = round(flow);
         fprintf(aliComm, sprintf('%s%g',unitID,flow) );
-        A=readMFC(aliComm);
+        %A=readMFC(aliComm);
         sprintf('%s%g',unitID,flow);
     end
 flushAlicatBuffer;
