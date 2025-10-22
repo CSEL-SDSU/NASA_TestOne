@@ -166,6 +166,8 @@ classdef TestOneProject < matlab.apps.AppBase
 
         weightTime; pressTime; O2Time;          %Timestamp vectors for data 
         ignitionTimestamp;
+        
+        oneSecondTimer;
     
     end
 
@@ -262,7 +264,33 @@ classdef TestOneProject < matlab.apps.AppBase
             end
 
         end
+
+        function collectMFC(app, ~, ~)
+
+            try
+                flushAlicatBuffer;
+
+                pollArrayA = readMFC('A');
+                pollArrayB = readMFC('B');
+
+                app.AFlowAct = pollArrayA.massFlow;
+                app.EditField_11.Value = app.AFlowAct;
+                app.EditField_12.Value = app.EditField_11.Value/(app.DC);
+
+                app.BFlowAct = pollArrayB.massFlow;
+                app.EditField_13.Value = app.BFlowAct;
+                app.EditField_14.Value = app.EditField_13.Value/(app.DC);
+
+                app.ActualSLPMEditField.Value = app.EditField_11.Value + app.EditField_13.Value;
+
+                app.ActualLPMEditField.Value = app.ActualSLPMEditField.Value/(app.DC);
+
+            catch ME
+                uialert(app.TestOneGUI, ME.message, "Error", "Interpreter", "html");
+            end
+        end
     end
+
 
     % Callbacks that handle component events
     methods (Access = private)
@@ -292,6 +320,7 @@ classdef TestOneProject < matlab.apps.AppBase
             app.lcRatio = app.FullScaleOutputmVVSpinner.Value;
             app.lcMax = app.CapacitygSpinner.Value;
             app.lcGain = app.AmplifierGainSpinner.Value;
+            app.oneSecondTimer = timer('TimerFcn', @(~, ~)collectMFC(app), 'Period', 1, 'ExecutionMode', 'fixedRate');
 
             %function ChamberPressurekPaSpinnerValueChanged(app, event)
             app.gChPress = app.ChamberPressurekPaSpinner.Value;
@@ -406,29 +435,10 @@ classdef TestOneProject < matlab.apps.AppBase
 
         % Button pushed function: ReadMFCsButton
         function ReadMFCsButtonPushed(app, event)
-            flushAlicatBuffer;
-
-            app.sampleRate = 1; app.sampleSize = 1;
-
-            app.pollA = readMFC('A');
-            app.pollB = readMFC('B');
-
-            while app.pollA.setPoint || app.pollB.setPoint ~= 0
-
-                pollArrayA = pollMFC('A', app.sampleRate, app.sampleSize);
-                app.AFlowAct = cell2mat(pollArrayA).massFlow;
-                app.EditField_11.Value = app.AFlowAct;
-                app.EditField_12.Value = app.EditField_11.Value/(app.DC);
-
-                pollArrayB = pollMFC('B', app.sampleRate, app.sampleSize);
-                app.BFlowAct = cell2mat(pollArrayB).massFlow;
-                app.EditField_13.Value = app.BFlowAct;
-                app.EditField_14.Value = app.EditField_13.Value/(app.DC);
-
-                app.ActualSLPMEditField.Value = app.EditField_11.Value + app.EditField_13.Value;
-
-                app.ActualLPMEditField.Value = app.ActualSLPMEditField.Value/(app.DC);
-
+ 
+            if strcmp(app.oneSecondTimer.Running, "off")
+                app.oneSecondTimer.start;
+                app.ReadMFCsButton.Enable = "off";
             end
             
         end
@@ -573,7 +583,12 @@ classdef TestOneProject < matlab.apps.AppBase
                 writematrix([testInfo' tTime' app.pressureVector' dPdt'], saveLocPressure);
             catch ME
                 uialert(app.TestOneGUI, ME.message, "Error", "Interpreter", "html");
+                tempPress = app.pressureVector;
+                save("pressureData.mat","tTime","tempPress","dPdt");
             end
+
+            app.pressureVector = [];
+            app.pressTime = [];
 
         end
 
@@ -665,7 +680,12 @@ classdef TestOneProject < matlab.apps.AppBase
                 writematrix([testInfo' tTime' app.weightVector' dMdt'], saveLocWeight);
             catch ME
                 uialert(app.TestOneGUI, ME.message, "Error", "Interpreter", "html");
+                tempWeight = app.weightVector;
+                save("weightData.mat","tTime","tempWeight","dMdt");
             end
+
+            app.weightVector = [];
+            app.weightTime = [];
 
         end
 
@@ -779,7 +799,12 @@ classdef TestOneProject < matlab.apps.AppBase
                 writematrix([testInfo' tTime' app.O2ConcentrationVector' dCdt'], saveLocO2Concentration);
             catch ME
                 uialert(app.TestOneGUI, ME.message, "Error", "Interpreter", "html");
+                tempO2 = app.O2ConcentrationVector;
+                save("pressureData.mat","tTime","tempO2","dCdt");
             end
+
+            app.O2ConcentrationVector = [];
+            app.O2Time = [];
 
         end
 
