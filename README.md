@@ -1,4 +1,4 @@
-# NASA_TestOne
+# MATLAB UI for SDSU NASA Test1
 TestOne Code
 
 > MFC functions are files required to compile the executables
