@@ -7,7 +7,7 @@ TestOne Code
 
 > Executables contained in TestOneGUI
 
-> To make changes to the GUI and package a new version, the helper functions must be downloaded.
+> To make changes to the GUI and package a new version, the MFC functions must be downloaded.
   Editing is done through one of the matlab application (.mlapp) files. It is recommended to
   create a new mlapp file when making changes to preserve older versions.
 
