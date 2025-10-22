@@ -3,7 +3,7 @@
     <param.appname>TestOneGUI</param.appname>
     <param.icon />
     <param.icons />
-    <param.version>2.6</param.version>
+    <param.version>2.7</param.version>
     <param.authnamewatermark>David Fredriksson, Dillon Muldoon</param.authnamewatermark>
     <param.email />
     <param.company>C&amp;SEL</param.company>
@@ -84,7 +84,6 @@
       <file>${PROJECT_ROOT}\connectAlicat.m</file>
       <file>${PROJECT_ROOT}\flushAlicatBuffer.m</file>
       <file>${PROJECT_ROOT}\hd-nasa-logo-transparent-background-7017516947129576ypz4kes8x.png</file>
-      <file>${PROJECT_ROOT}\pollMFC.m</file>
       <file>${PROJECT_ROOT}\readMFC.m</file>
       <file>${PROJECT_ROOT}\setFlow.m</file>
     </fileset.depfun>
