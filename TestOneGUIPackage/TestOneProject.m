@@ -158,6 +158,7 @@ classdef TestOneProject < matlab.apps.AppBase
         toggleO2Concentration;
         O2ConcentrationVector;
         O2SensorError;
+        arduinoDevice2;
 
         lcMax; lcInput; lcRatio;                % load cell max weight, load cell input voltage, load cell ratiometric factor
         zeroScale; lcGain;                      % tare scale value, op amp circuit gain
@@ -646,6 +647,32 @@ classdef TestOneProject < matlab.apps.AppBase
             addlistener(app, 'weightOut', 'PostSet', @app.lcChange);
 
         end
+        % Button pushed function: ConnectArduinoButton2
+        function ConnectArduinoButtonPushed(app, event)
+            dlgTitle = 'COM Port';
+            dlgInput = {'COM6'};
+            dlgFieldSize = [1 50];
+            dlgPrompt = {'Enter the COM port of the Arduino (Ex. COM3)'};
+            tempPort = inputdlg(dlgPrompt, dlgTitle, dlgFieldSize, dlgInput);
+            comPort = char(tempPort);
+
+            try
+                app.arduinoDevice2 = serialport(comPort, 9600);
+            catch ME
+                uialert(app.TestOneGUI, ME.message, "Error", "Interpreter", "html");
+                return
+            end
+
+            % configureCallback calls the function specified in the command when a terminator is available to be read from the serial port
+            % addListener specifies a function to be called when a specific
+            % value is changed
+
+            %configureTerminator(app.arduinoDevice, 'CR/LF');
+            %readline(app.arduinoDevice2);
+            %configureCallback(app.arduinoDevice, "terminator", @app.handleArdIncoming);
+            %addlistener(app, 'weightOut', 'PostSet', @app.lcChange);
+
+        end
 
         % Button pushed function: RecordWeightButton
         function RecordWeightButtonPushed(app, event)
@@ -723,7 +750,7 @@ classdef TestOneProject < matlab.apps.AppBase
         function IgniteButtonPushed(app, event)
             ignTempValue = app.ignitionTime;
             ignNum = string(num2str(ignTempValue*1000));
-            writeline(app.arduinoDevice, ignNum);
+            writeline(app.arduinoDevice2, ignNum);
             app.ignitionTimestamp = datetime('now');
 
             %Allows progress bar to operate properly without pausing app functions
@@ -1798,3 +1825,4 @@ classdef TestOneProject < matlab.apps.AppBase
         end
     end
 end
+
