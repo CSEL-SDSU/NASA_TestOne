@@ -1,8 +1,6 @@
-#include <Adafruit_ADS1X15.h> //ADC, servo, and non-blocking delay libraries (install through Arduino IDE manager if necessary)
 #include <Servo.h>
 #include <millisDelay.h>
 
-Adafruit_ADS1115 ads1115;	// Construct an ads1115
 Servo srv; //Initialize servo object
 millisDelay ignitorDelay; //Delay to allow code to run while ignitor active
 
@@ -14,9 +12,6 @@ int extend = 95;
 
 void setup() 
 {
-  Serial.begin(9600); //Open serial port and I2C communication with ADC
-  ads1115.begin();
-
   srv.attach(servo); // Set pin for servo and home motor
   srv.write(retract);
 
@@ -49,8 +44,6 @@ void loop()
       digitalWrite(relay, 0); 
       srv.write(retract);
     }
-
-  ads1115.setGain(GAIN_TWO); //Set ADC gain
-  Serial.println(ads1115.readADC_SingleEnded(0)); //Prints raw data to serial port to be read by GUI
 }
+
 
