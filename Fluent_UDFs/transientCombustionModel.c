@@ -6,26 +6,26 @@
 #include "udf.h"
 #include "math.h"
 
- /*Constants in standard SI units*/
- #define TA 30196 /*Activation temperature*/
- #define A0 1.24e12 /*Pre-exponential term */
- #define ETA 1.0 /*Reaction efficiency*/
- #define TMIN 500.0 /*Minimum and maximum pyrolysis temperature */
- #define TMAX 900.0
- #define HOV 468000.0 /*Heat of vaporization*/
+/*Constants in standard SI units*/
+#define TA 30196 /*Activation temperature*/
+#define A0 1.24e12 /*Pre-exponential term */
+#define ETA 1.0 /*Reaction efficiency*/
+#define TMIN 500.0 /*Minimum and maximum pyrolysis temperature */
+#define TMAX 900.0
+#define HOV 468000.0 /*Heat of vaporization*/
 
- #define MSTORE 0 /*Memory Locations*/
- #define MFSTORE 1
+#define MSTORE 0 /*Memory Locations for mass and mass flux*/
+#define MFSTORE 1
 
- #define BCID 5 /*Boundary condition int ID for massSum*/
+#define BCID 5 /*Boundary condition int ID for massSum*/
 
- real rho = 457.5; /*Sample density*/
- real thalf = 0.000215; /*Sample half thickness*/
- real L = 0.305; /*Sample length*/
- real W = 0.065; /*Sample width*/
- real conc = 1.0; /*Mass concentration of cellulose in sample*/
+real rho = 457.5; /*Sample density*/
+real thalf = 0.000215; /*Sample half thickness*/
+real L = 0.305; /*Sample length*/
+real W = 0.065; /*Sample width*/
+real conc = 1.0; /*Mass concentration of cellulose in sample*/
 
- int udmi_updated = 0; /*Memory update flag*/
+int udmi_updated = 0; /*Memory update flag*/
 
 
 /**********************************************************************
@@ -237,13 +237,11 @@ DEFINE_EXECUTE_AT_END(massSum)
        for (col = 0; col < face_count; col++)
          fprintf(fa, ",face_%d [g]", col+1);
        fprintf(fa, "\n");
-       Message("Should've printed\n");
 
        fprintf(fa, "%g", 0.0);
        begin_f_loop(f, t)
        {
          fprintf(fa, ",%.4g", initMass/((real) face_count));
-         Message("Looping...\n");
        }
        end_f_loop(f, t)
        fprintf(fa, "\n");
