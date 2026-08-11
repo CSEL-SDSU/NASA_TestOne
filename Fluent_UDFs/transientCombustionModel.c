@@ -168,7 +168,7 @@ DEFINE_PROFILE(heat_absorption_rate, thread, position)
      Thread *t0;
      begin_f_loop(f, thread)
      { 
-       F_PROFILE(f, thread, position) = -(HOV + 100*(550)) * F_UDMI(f, thread, MFSTORE);
+       F_PROFILE(f, thread, position) = -(HOV + 100*(550)) * F_UDMI(f, thread, MFSTORE); //HOV added to sensible heat to required to heat sample to vaporization temp
      }
      end_f_loop(f, thread)
    #endif
@@ -238,6 +238,7 @@ DEFINE_EXECUTE_AT_END(massSum)
          fprintf(fa, ",face_%d [g]", col+1);
        fprintf(fa, "\n");
 
+       //Initial values
        fprintf(fa, "%g", 0.0);
        begin_f_loop(f, t)
        {
