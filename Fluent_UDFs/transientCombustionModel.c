@@ -1,6 +1,7 @@
 /**********************************************************************
   transientCombustionModel.c 
   Header file containing Fluent User Defined Functions (UDFs) for a boundary condition pyrolysis model for transient combusiton: pyrolysis_release_rate, heat_absorption_rate, massSum
+  !Caution massSum will overwrite!
  ***********************************************************************/
 
 #include "udf.h"
