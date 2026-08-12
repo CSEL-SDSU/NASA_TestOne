@@ -317,7 +317,7 @@ DEFINE_EXECUTE_AT_END(massSum)
       fp = fopen("sample_mass_history.csv", "a");
       if (fp != NULL)
       {
-        fprintf(fp, "%g,%.4g\n", CURRENT_TIME, globalMass * 1000.0);
+        fprintf(fp, "%g,%.6g\n", CURRENT_TIME, globalMass * 1000.0);
         fclose(fp);
       }
       else { Message("massSum: Failed to append to sample_mass_history.csv.\n"); }
