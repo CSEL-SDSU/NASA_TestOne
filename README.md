@@ -1,6 +1,10 @@
 # NASA_TestOne
 
-> MFC functions are files required to compile the executables
+>This repo contains all code pertaining to the SDSU Test One experiment and transient combustion model
+
+>The UDFs and post processing code are for both the test box and the full 2D axisymmetric model
+
+> MFC functions are files required to compile the GUI executables
 
 > Test code contains misc. code used in Test1 experiments 
 
