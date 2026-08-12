@@ -1,0 +1,44 @@
+Command 1:
+
+(define fname1 (string-append "cellData_ts" (number->string (rpgetvar 'time-step)) ".cgns"))
+(ti-menu-load-string
+ (string-append
+  "file/export/cgns
+"
+  fname1 "
+"
+  "
+"                   
+  "yes
+"
+  "yes
+"
+  "x-coordinate y-coordinate x-velocity y-velocity temperature pressure density molef-c6h10o5 molef-o2 molef-co2 molef-h2o molef-n2 net-rate-c6h10o5
+"
+  "()
+"))
+
+
+Command 2:
+
+(define fname2 (string-append "faceData_ts" (number->string (rpgetvar 'time-step)) ".cgns"))
+(ti-menu-load-string
+ (string-append
+  "file/export/cgns
+"
+  fname2 "
+"
+ "surface-select
+"
+ "rsurface
+"
+ "()
+"                   
+  "yes
+"
+  "yes
+"
+  "heat-flux udm-0 udm-1
+"
+  "()
+"))
