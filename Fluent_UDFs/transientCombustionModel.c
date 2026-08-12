@@ -18,7 +18,8 @@
 #define MSTORE 0 /*Memory Locations for mass and mass flux*/
 #define MFSTORE 1
 
-#define BCID 5 /*Boundary condition int ID for massSum*/
+#define BCID 5 /*Boundary condition int ID for massSum and maximum number of faces on the boundary*/
+#define MAX_FACES 500
 
 real rho = 457.5; /*Sample density*/
 real thalf = 0.000215; /*Sample half thickness*/
@@ -182,115 +183,138 @@ DEFINE_PROFILE(heat_absorption_rate, thread, position)
  ***********************************************************************/
 
 DEFINE_EXECUTE_AT_END(massSum)
- {
-   Domain *d = Get_Domain(1);
-   Thread *t = Lookup_Thread(d, BCID);
-   face_t f;
-   real initMass = conc * rho * thalf * L * W;
-   real timeTotalMass = 0.0;
-   int  face_count;
+{
+  Domain *d     = Get_Domain(1);
+  Thread *t     = Lookup_Thread(d, BCID);
+  face_t f;
+  real initMass = conc * rho * thalf * L * W;
+  int i, j;
 
-   #if !RP_HOST
-        
-    face_count = THREAD_N_ELEMENTS_INT(t);
-    
-    begin_f_loop(f,t)
+#if !RP_HOST
+
+  real  localMass  = 0.0;
+  int   localCount = 0;
+  real *localFaces;
+
+  /* Count local principal faces */
+  begin_f_loop(f, t)
+  {
+    if (PRINCIPAL_FACE_P(f, t))
+      localCount++;
+  }
+  end_f_loop(f, t)
+
+  /* Allocate and fill local face mass array using counter not face ID */
+  localFaces = (real *)malloc(localCount * sizeof(real));
+  i = 0;
+  begin_f_loop(f, t)
+  {
+    if (PRINCIPAL_FACE_P(f, t))
     {
-      if (PRINCIPAL_FACE_P(f, t))
-      {
-        timeTotalMass += F_UDMI(f,t,0);
-      }
-    }
-    end_f_loop(f,t)
-
-    timeTotalMass = PRF_GRSUM1(timeTotalMass);
-   #endif
-
-   node_to_host_real_1(timeTotalMass); /*Pass variables from nodes to host*/
-   node_to_host_int_1(face_count);
-
-  
-  if(I_AM_NODE_ZERO_P)
-  { 
-   int col;
-
-   if (CURRENT_TIME < 1e-10)
-   {
-     FILE *fp = fopen("sample_mass_history.csv", "w"); //Total mass
-     if (fp != NULL)
-     {
-      //header
-       fprintf(fp, "time [s],sample mass [g]\n");
-       fprintf(fp, "%g,%.4g\n", (real)0.0, initMass * 1000.0);
-       fclose(fp);
-     }
-
-     else 
-     {
-       Message("massSum: Failed to open CSV for writing total mass.\n");
-     }
-
-     FILE *fa = fopen("face_mass_history.csv", "w"); //Individual mass
-     if (fa != NULL)
-     {
-      //headers
-       fprintf(fa, "time [s]");
-       for (col = 0; col < face_count; col++)
-         fprintf(fa, ",face_%d [g]", col+1);
-       fprintf(fa, "\n");
-
-       //Initial values
-       fprintf(fa, "%g", 0.0);
-       begin_f_loop(f, t)
-       {
-         fprintf(fa, ",%.4g", initMass/((real) face_count));
-       }
-       end_f_loop(f, t)
-       fprintf(fa, "\n");
-       fclose(fa);
-     }
-
-     else 
-     {
-       Message("massSum: Failed to open CSV for writing face mass.\n");
-     }
-   }
-
-   else
-   {
-     FILE *fp = fopen("sample_mass_history.csv", "a"); //Total mass
-     if (fp != NULL)
-     {
-       fprintf(fp, "%g,%.4g\n", CURRENT_TIME, timeTotalMass * 1000.0);
-       fclose(fp);
-     }
-
-     else
-     {
-       Message("massSum: Failed to open CSV for writing total mass.\n");
-     }
-
-     FILE *fa = fopen("face_mass_history.csv", "a"); //Individual mass
-     if (fa != NULL)
-     {
-       fprintf(fa, "%g", CURRENT_TIME);
-       begin_f_loop(f, t)
-       {
-         fprintf(fa, ",%.5g", F_UDMI(f,t,0) * 1000.0);
-       }
-       end_f_loop(f, t)
-       fprintf(fa, "\n");
-       fclose(fa);
-     }
-
-     else
-     {
-       Message("massSum: Failed to open CSV for writing face mass.\n");
-     }
+      localFaces[i]  = F_UDMI(f, t, 0);
+      localMass     += F_UDMI(f, t, 0);
+      i++;
     }
   }
-   
-  #if !RP_HOST
-   udmi_updated = 0;
-  #endif
+  end_f_loop(f, t)
+
+  /* Nodes 1,2,... send their data to node 0 */
+  if (!I_AM_NODE_ZERO_P)
+  {
+    PRF_CSEND_INT(node_zero,  &localCount, 1,          myid);
+    PRF_CSEND_REAL(node_zero,  localFaces, localCount, myid);
+    PRF_CSEND_REAL(node_zero, &localMass,  1,          myid);
+  }
+  else
+  {
+    /* Node 0 builds global arrays starting with its own data */
+    real  globalMass  = localMass;
+    int   totalCount  = localCount;
+    real  allFaces[MAX_FACES];
+    int   recvCount;
+    real  recvMass;
+    real *recvFaces;
+
+    for (j = 0; j < MAX_FACES; j++)  allFaces[j] = 0.0;
+    for (j = 0; j < localCount; j++) allFaces[j] = localFaces[j];
+
+    int offset = localCount;
+
+    /* Receive from nodes 1,2,... and append to allFaces */
+    compute_node_loop_not_zero(i)
+    {
+      PRF_CRECV_INT(i,  &recvCount, 1,         i);
+      recvFaces = (real *)malloc(recvCount * sizeof(real));
+      PRF_CRECV_REAL(i,  recvFaces,  recvCount, i);
+      PRF_CRECV_REAL(i, &recvMass,   1,          i);
+
+      globalMass += recvMass;
+      for (j = 0; j < recvCount && (offset + j) < MAX_FACES; j++)
+        allFaces[offset + j] = recvFaces[j];
+      offset     += recvCount;
+      totalCount += recvCount;
+
+      free(recvFaces);
+    }
+
+    /* Node 0 writes directly to CSV */
+    {
+      int  col;
+      FILE *fp, *fa;
+
+      if (CURRENT_TIME < 1e-10)
+      {
+        fp = fopen("sample_mass_history.csv", "w");
+        if (fp != NULL)
+        {
+          fprintf(fp, "time [s],sample mass [g]\n");
+          fprintf(fp, "%g,%.4g\n", 0.0, initMass * 1000.0);
+          fclose(fp);
+        }
+        else { Message("massSum: Failed to open sample_mass_history.csv.\n"); }
+
+        fa = fopen("face_mass_history.csv", "w");
+        if (fa != NULL)
+        {
+          fprintf(fa, "time [s]");
+          for (col = 0; col < totalCount; col++)
+            fprintf(fa, ",face_%d [mg]", col + 1);
+          fprintf(fa, "\n");
+
+          fprintf(fa, "%g", 0.0);
+          for (col = 0; col < totalCount; col++)
+            fprintf(fa, ",%.4g", allFaces[col] * 1000000.0);
+          fprintf(fa, "\n");
+          fclose(fa);
+        }
+        else { Message("massSum: Failed to open face_mass_history.csv.\n"); }
+      }
+      else
+      {
+        fp = fopen("sample_mass_history.csv", "a");
+        if (fp != NULL)
+        {
+          fprintf(fp, "%g,%.4g\n", CURRENT_TIME, globalMass * 1000.0);
+          fclose(fp);
+        }
+        else { Message("massSum: Failed to append to sample_mass_history.csv.\n"); }
+
+        fa = fopen("face_mass_history.csv", "a");
+        if (fa != NULL)
+        {
+          fprintf(fa, "%g", CURRENT_TIME);
+          for (col = 0; col < totalCount; col++)
+            fprintf(fa, ",%.4g", allFaces[col] * 1000000.0);
+          fprintf(fa, "\n");
+          fclose(fa);
+        }
+        else { Message("massSum: Failed to append to face_mass_history.csv.\n"); }
+      }
+    }
+  }
+
+  free(localFaces);
+  udmi_updated = 0;
+
+#endif /* !RP_HOST */
 }
