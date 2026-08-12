@@ -1,5 +1,5 @@
 %clc; clear; close all;
-%Run testBoxPost first to get cell centroid (Yq)
+%Run reactionBoxPost first to get cell centroid (Yq)
 
 Tbl = readtable("face_flux_history.csv");
 A = table2array(Tbl(:,2:end));
