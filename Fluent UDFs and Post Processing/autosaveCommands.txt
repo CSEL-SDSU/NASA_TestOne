@@ -1,3 +1,5 @@
+/Use these commands to autosave a cgns file with the desired variables (once every specified amount of time). The first command is for the whole domain and the second is for a specified wall face./
+
 Command 1:
 
 (define fname1 (string-append "cellData_ts" (number->string (rpgetvar 'time-step)) ".cgns"))
