@@ -87,7 +87,7 @@ int udmi_updated = 0; /*Memory update flag*/
       A_mag = NV_MAG(area); /*planar or axisymmetric*/
       /*A_mag = 2*M_PI*NV_MAG(area);*/
 
-      if (A_mag < 1e-20)
+      if (A_mag < 1e-20) //Avoid div by 0
       {
         F_PROFILE(f, thread, position) = 0.0; 
         continue;
@@ -110,7 +110,7 @@ int udmi_updated = 0; /*Memory update flag*/
       t0 = F_C0_THREAD(f, thread);
       Tface = C_T(c0, t0);
 
-      if (Tface < 1.0) /*Check to prevent div by 0 and limit temp*/
+      if (Tface < 1.0) /*Avoid div by 0 and limit temp*/
       { 
        Tface = 1.0; 
       }
@@ -123,7 +123,7 @@ int udmi_updated = 0; /*Memory update flag*/
       real k = ETA * A0 * exp(-TA / Tface);
       real mflux = rho * thalf * k;
 
-      /*Assigns release rate based on face mass to conserve mass*/
+      /*Assigns mass flux based on face mass to ensure mass conservation*/
       if (remaining_mass <= 0.0 || Tface < TMIN)
       {
         F_PROFILE(f, thread, position) = 0.0;
@@ -184,19 +184,20 @@ DEFINE_PROFILE(heat_absorption_rate, thread, position)
 
 DEFINE_EXECUTE_AT_END(massSum)
 {
-  Domain *d     = Get_Domain(1);
-  Thread *t     = Lookup_Thread(d, BCID);
+  Domain *d = Get_Domain(1); //To get thread for face loops
+  Thread *t = Lookup_Thread(d, BCID);
   face_t f;
   real initMass = conc * rho * thalf * L * W;
   int i, j;
 
 #if !RP_HOST
 
-  real  localMass  = 0.0;
-  int   localCount = 0;
+  real localMass  = 0.0;
+  int localCount = 0;
   real *localFaces;
   real *localFlux;
 
+  //Counts faces on thread
   begin_f_loop(f, t)
   {
     if (PRINCIPAL_FACE_P(f, t))
@@ -204,72 +205,73 @@ DEFINE_EXECUTE_AT_END(massSum)
   }
   end_f_loop(f, t)
 
+  //Initial matrix sizing
   localFaces = (real *)malloc(localCount * sizeof(real));
-  localFlux  = (real *)malloc(localCount * sizeof(real));
+  localFlux = (real *)malloc(localCount * sizeof(real));
   i = 0;
-  begin_f_loop(f, t)
+  begin_f_loop(f, t) //Access user memory at every face
   {
     if (PRINCIPAL_FACE_P(f, t))
     {
-      localFaces[i]  = F_UDMI(f, t, 0);
-      localFlux[i]   = F_UDMI(f, t, 1);
-      localMass     += F_UDMI(f, t, 0);
+      localFaces[i] = F_UDMI(f, t, 0);
+      localFlux[i] = F_UDMI(f, t, 1);
+      localMass += F_UDMI(f, t, 0);
       i++;
     }
   }
   end_f_loop(f, t)
 
-  if (!I_AM_NODE_ZERO_P)
+  if (!I_AM_NODE_ZERO_P) //Sends local node data to node 0
   {
-    PRF_CSEND_INT(node_zero,  &localCount, 1,          myid);
-    PRF_CSEND_REAL(node_zero,  localFaces, localCount, myid);
-    PRF_CSEND_REAL(node_zero,  localFlux,  localCount, myid);
-    PRF_CSEND_REAL(node_zero, &localMass,  1,          myid);
+    PRF_CSEND_INT(node_zero, &localCount, 1, myid);
+    PRF_CSEND_REAL(node_zero, localFaces, localCount, myid);
+    PRF_CSEND_REAL(node_zero, localFlux, localCount, myid);
+    PRF_CSEND_REAL(node_zero, &localMass, 1, myid);
   }
   else
   {
-    real  globalMass  = localMass;
-    int   totalCount  = localCount;
-    real  allFaces[MAX_FACES];
-    real  allFlux[MAX_FACES];
-    int   recvCount;
-    real  recvMass;
+    real globalMass = localMass;
+    int totalCount = localCount;
+    real allFaces[MAX_FACES];
+    real allFlux[MAX_FACES];
+    int recvCount;
+    real recvMass;
     real *recvFaces;
     real *recvFlux;
-    int   col;
+    int col;
     FILE *fp, *fa, *ff;
 
     for (j = 0; j < localCount; j++)
     {
       allFaces[j] = localFaces[j];
-      allFlux[j]  = localFlux[j];
+      allFlux[j] = localFlux[j];
     }
 
     int offset = localCount;
 
-    compute_node_loop_not_zero(i)
+    compute_node_loop_not_zero(i) //Allocates memeory for temporary arrays for data from each node
     {
-      PRF_CRECV_INT(i,  &recvCount, 1,         i);
+      PRF_CRECV_INT(i, &recvCount, 1, i);
       recvFaces = (real *)malloc(recvCount * sizeof(real));
-      recvFlux  = (real *)malloc(recvCount * sizeof(real));
-      PRF_CRECV_REAL(i,  recvFaces,  recvCount, i);
-      PRF_CRECV_REAL(i,  recvFlux,   recvCount, i);
-      PRF_CRECV_REAL(i, &recvMass,   1,          i);
+      recvFlux = (real *)malloc(recvCount * sizeof(real));
+      PRF_CRECV_REAL(i, recvFaces, recvCount, i);
+      PRF_CRECV_REAL(i, recvFlux, recvCount, i);
+      PRF_CRECV_REAL(i, &recvMass, 1, i);
 
       globalMass += recvMass;
-      for (j = 0; j < recvCount && (offset + j) < MAX_FACES; j++)
+      for (j = 0; j < recvCount && (offset + j) < MAX_FACES; j++) //Organizes data and stores to output array
       {
         allFaces[offset + j] = recvFaces[j];
-        allFlux[offset + j]  = recvFlux[j];
+        allFlux[offset + j] = recvFlux[j];
       }
-      offset     += recvCount;
-      totalCount += recvCount;
+      offset += recvCount; 
+      totalCount += recvCount; 
 
       free(recvFaces);
       free(recvFlux);
     }
 
-    if (CURRENT_TIME < 1e-10)
+    if (CURRENT_TIME < 1e-10) //Creates csv and prints headers for each file at calculation start and then prints data for every timestep
     {
       fp = fopen("sample_mass_history.csv", "w");
       if (fp != NULL)
