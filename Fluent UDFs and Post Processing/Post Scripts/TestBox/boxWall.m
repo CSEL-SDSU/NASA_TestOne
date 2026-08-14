@@ -1,5 +1,6 @@
-%clc; clear; close all;
+%Plots mass flux and face mass of a selected timestep
 %Run reactionBoxPost first to get cell centroid (Yq)
+%clc; clear; close all;
 
 Tbl = readtable("face_flux_history.csv");
 A = table2array(Tbl(:,2:end));
