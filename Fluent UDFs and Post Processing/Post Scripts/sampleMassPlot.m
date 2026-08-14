@@ -1,3 +1,4 @@
+%Plots time total mass data 
 %clc; clear; close all;
 
 Tbl = readtable("sample_mass_history.csv");
