@@ -1,3 +1,4 @@
+%Creates plots/ contours of saved solution variables
 %clc; clear; close all;
 
 %Load data
