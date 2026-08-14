@@ -1,13 +1,15 @@
+%Reads and plots flame tracker data from an excel file
+%Can do any tracking type as long as the correct column is selected
 %clc; clear; close all;
 
 Tbl = readtable("Test2_manual.xlsx");
 A = table2array(Tbl(:,2:end));
 t = A(:,2);
 t = t - t(1);
-d = A(:,4);
+d = A(:,4); %Select data column here
 d = d - d(1);
 
-order=2;
+order=2; %For speed fit
 
 figure(1)
 hold on
@@ -24,11 +26,13 @@ xlabel("Flow Time [s]")
 title("Vertical Flame Progression")
 fontsize(12,"points")
 
+%R square calculation
 SStot = sum((d-mean(d)).^2);
 SSres = sum((d-f).^2);
 Rsq = 1-SSres/SStot;
-display(Rsq)
+display(Rsq) 
 
+%Speed plot
 if order > 1
     eqn = convertStringsToChars(eqn);
     eqn(1:4) = [];
