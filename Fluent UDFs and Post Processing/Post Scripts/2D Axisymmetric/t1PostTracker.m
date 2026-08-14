@@ -1,3 +1,6 @@
+%Tracks minimum verical point of the flame based on a set tolerance
+%If a flame is being supplied with enough fuel the tolerance should be around 1
+%Effect of lower tolerance should be negligable however
 clc; clear; close all;
 
 timeTotal = 5;
