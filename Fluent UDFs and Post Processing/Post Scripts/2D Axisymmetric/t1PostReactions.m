@@ -1,3 +1,4 @@
+%For creating contours and plots of reactions rates
 clc; clear; close all;
 
 %Load data
