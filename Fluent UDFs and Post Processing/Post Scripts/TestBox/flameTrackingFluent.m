@@ -3,11 +3,17 @@
 %Effect of lower tolerance should be negligable however
 %clc; clear; close all;
 
+%Tracking settings
 timeTotal = 8;
 timeStep = 0.01;
 saveInterval = 1;
-tol = 1e-7; %Flame tolerance here
+tol = 1e-9;
+
+%Graphing settings
 order = 2;
+dataMarker = 'o';
+lineName = 'Full Thickness';
+colorSelect = 'r';
 
 totalTs = timeTotal/timeStep;
 TsInterval = saveInterval/timeStep;
