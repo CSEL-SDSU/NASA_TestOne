@@ -3,10 +3,17 @@
 %Effect of lower tolerance should be negligable however
 clc; clear; close all;
 
-timeTotal = 5;
+%Tracking settings
+timeTotal = 8;
 timeStep = 0.01;
-saveInterval = 0.5;
-tol = 1e-7;
+saveInterval = 1;
+tol = 1e-9;
+
+%Graphing settings
+order = 2;
+dataMarker = 'o';
+lineName = 'Full Thickness';
+colorSelect = 'r';
 
 totalTs = timeTotal/timeStep;
 TsInterval = saveInterval/timeStep;
@@ -44,7 +51,6 @@ for i = TsInterval:TsInterval:totalTs
     z = z+1;
 end
 
-order = 2;
 t = saveInterval:saveInterval:timeTotal;
 plot(t,flamePos,'o')
 hold on
