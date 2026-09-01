@@ -48,4 +48,4 @@ Command 2:
 Command 3:
 //comment : replace 2 with correct zone id number as needed
 
-/define/boundary-conditions/fluid 2 no no yes no none no no no no no
+/define/boundary-conditions/fluid 45 fluid no no no no no 0 no 0 no no no yes yes 0
