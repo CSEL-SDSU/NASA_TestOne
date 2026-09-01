@@ -1,4 +1,4 @@
-/Use these commands to autosave a cgns file with the desired variables (once every specified amount of time). The first command is for the whole domain and the second is for a specified wall face./
+/Use these commands to autosave a .cgns file with the desired variables (once every specified amount of time). The first command is for the whole domain and the second is for a specified wall face. A third command is for turning off the ignitor zone after a specified time. This is for convenience, so you don't have to turn it off manually. /
 
 Command 1:
 
@@ -32,7 +32,7 @@ Command 2:
 "
  "surface-select
 "
- "rsurface
+ "rsurface                             //comment : replace rsurface with correct name of BC as needed
 "
  "()
 "                   
@@ -44,3 +44,8 @@ Command 2:
 "
   "()
 "))
+
+Command 3:
+//comment : replace 2 with correct zone id number as needed
+
+/define/boundary-conditions/fluid 2 no no yes no none no no no no no
