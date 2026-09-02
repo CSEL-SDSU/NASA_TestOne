@@ -59,7 +59,7 @@ int udmi_updated = 0; /*Memory update flag*/
     }
     end_f_loop(f, thread)
       
-    num_face = PRF_GISUM1(local_face);
+    num_face = PRF_GISUM1(local_face); //Sum number of faces across nodes and find the vertical length of each for a unifrom grid
     real dx = L/((real)num_face);
 
     /*Pyrolysis rate profile set*/
