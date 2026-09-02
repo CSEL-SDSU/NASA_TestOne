@@ -58,13 +58,8 @@ int udmi_updated = 0; /*Memory update flag*/
         local_face++;
     }
     end_f_loop(f, thread)
-
-    #if RP_NODE /*For summing with parallel nodes*/
-      num_face = PRF_GISUM1(local_face);
-    #else
-      num_face = local_face;
-    #endif
-    
+      
+    num_face = PRF_GISUM1(local_face);
     real dx = L/((real)num_face);
 
     /*Pyrolysis rate profile set*/
