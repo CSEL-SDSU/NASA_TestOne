@@ -37,6 +37,7 @@ int udmi_updated = 0; /*Memory update flag*/
 
  DEFINE_PROFILE(pyrolysis_release_rate, thread, position)
  {
+    #if !RP_HOST
     static int initialized = 0;
     static real last_time   = -1.0;
     face_t f;
@@ -44,7 +45,7 @@ int udmi_updated = 0; /*Memory update flag*/
     int num_face = 0;
     int local_face = 0;
 
-    if (CURRENT_TIME != last_time)
+    if (CURRENT_TIME != last_time) //Sets flag based on if timestep has changed or not
     {
       udmi_updated = 0;
       last_time = CURRENT_TIME;
@@ -63,8 +64,8 @@ int udmi_updated = 0; /*Memory update flag*/
     #else
       num_face = local_face;
     #endif
-
-    if (num_face == 0) return;
+    
+    real dx = L/((real)num_face);
 
     /*Pyrolysis rate profile set*/
     begin_f_loop(f, thread)
@@ -75,23 +76,11 @@ int udmi_updated = 0; /*Memory update flag*/
       real A_mag;
       real init_mass;
       real remaining_mass;
-      cell_t c0;
-      Thread *t0;
-      
-      real dx = L/((real)num_face);
-
-      if (!PRINCIPAL_FACE_P(f, thread)) continue;
 
       /* Face area magnitude*/
       F_AREA(area, f, thread);
       A_mag = NV_MAG(area); /*planar or axisymmetric*/
       /*A_mag = 2*M_PI*NV_MAG(area);*/
-
-      if (A_mag < 1e-20) //Avoid div by 0
-      {
-        F_PROFILE(f, thread, position) = 0.0; 
-        continue;
-      }
 
       /* Initial mass assigned to this face contribution */
       init_mass = conc*(rho * dx * W * thalf);
@@ -105,16 +94,9 @@ int udmi_updated = 0; /*Memory update flag*/
       
       remaining_mass = F_UDMI(f, thread, 0);
       
-      /*Temperature from adjacent cell*/
-      c0  = F_C0(f, thread);
-      t0 = F_C0_THREAD(f, thread);
-      Tface = C_T(c0, t0);
+      Tface = F_T(f, thread);
 
-      if (Tface < 1.0) /*Avoid div by 0 and limit temp*/
-      { 
-       Tface = 1.0; 
-      }
-      else if (Tface > TMAX)
+      if (Tface > TMAX)
       {
         Tface = TMAX;
       }
@@ -152,6 +134,7 @@ int udmi_updated = 0; /*Memory update flag*/
     end_f_loop(f, thread)
     initialized = 1;
     udmi_updated = 1;
+    #endif
   }
 
 
@@ -164,10 +147,7 @@ DEFINE_PROFILE(heat_absorption_rate, thread, position)
  {
    #if !RP_HOST
      face_t f;
-     real FCP;
-     real Tface;
-     cell_t c0;
-     Thread *t0;
+
      begin_f_loop(f, thread)
      { 
        F_PROFILE(f, thread, position) = -(HOV + 100*(550)) * F_UDMI(f, thread, MFSTORE); //HOV added to approximate amount of heat required to heat sample to vaporization temp multiplied by mass flux
@@ -194,8 +174,10 @@ DEFINE_EXECUTE_AT_END(massSum)
 
   real localMass  = 0.0;
   int localCount = 0;
+  real centroid[ND_ND];
   real *localFaces;
   real *localFlux;
+  real *localCentroid;
 
   //Counts faces on thread
   begin_f_loop(f, t)
@@ -208,14 +190,18 @@ DEFINE_EXECUTE_AT_END(massSum)
   //Initial matrix sizing
   localFaces = (real *)malloc(localCount * sizeof(real));
   localFlux = (real *)malloc(localCount * sizeof(real));
+  localCentroid = (real *)malloc(localCount * sizeof(real));
+  
   i = 0;
   begin_f_loop(f, t) //Access user memory at every face
   {
     if (PRINCIPAL_FACE_P(f, t))
     {
-      localFaces[i] = F_UDMI(f, t, 0);
-      localFlux[i] = F_UDMI(f, t, 1);
-      localMass += F_UDMI(f, t, 0);
+      F_CENTROID(centroid, f, t);
+      localCentroid = centroid[1];
+      localFaces[i] = F_UDMI(f, t, MSTORE);
+      localFlux[i] = F_UDMI(f, t, MFSTORE);
+      localMass += F_UDMI(f, t, MSTORE);
       i++;
     }
   }
@@ -226,6 +212,7 @@ DEFINE_EXECUTE_AT_END(massSum)
     PRF_CSEND_INT(node_zero, &localCount, 1, myid);
     PRF_CSEND_REAL(node_zero, localFaces, localCount, myid);
     PRF_CSEND_REAL(node_zero, localFlux, localCount, myid);
+    PRF_CSEND_REAL(node_zero, localCentroid, localCount, myid);
     PRF_CSEND_REAL(node_zero, &localMass, 1, myid);
   }
   else
@@ -234,10 +221,12 @@ DEFINE_EXECUTE_AT_END(massSum)
     int totalCount = localCount;
     real allFaces[MAX_FACES];
     real allFlux[MAX_FACES];
+    real faceCentroid[MAX_FACES];
     int recvCount;
     real recvMass;
     real *recvFaces;
     real *recvFlux;
+    real *recvCentroid;
     int col;
     FILE *fp, *fa, *ff;
 
@@ -245,6 +234,7 @@ DEFINE_EXECUTE_AT_END(massSum)
     {
       allFaces[j] = localFaces[j];
       allFlux[j] = localFlux[j];
+      faceCentroid[j]  = localCentroid[j];
     }
 
     int offset = localCount;
@@ -254,8 +244,10 @@ DEFINE_EXECUTE_AT_END(massSum)
       PRF_CRECV_INT(i, &recvCount, 1, i);
       recvFaces = (real *)malloc(recvCount * sizeof(real));
       recvFlux = (real *)malloc(recvCount * sizeof(real));
+      recvCentroid = (real *)malloc(recvCount * sizeof(real));
       PRF_CRECV_REAL(i, recvFaces, recvCount, i);
       PRF_CRECV_REAL(i, recvFlux, recvCount, i);
+      PRF_CRECV_REAL(i, recvCentroid,   recvCount, i);
       PRF_CRECV_REAL(i, &recvMass, 1, i);
 
       globalMass += recvMass;
@@ -263,12 +255,14 @@ DEFINE_EXECUTE_AT_END(massSum)
       {
         allFaces[offset + j] = recvFaces[j];
         allFlux[offset + j] = recvFlux[j];
+        faceCentroid[offset + j]  = recvCentroid[j];
       }
       offset += recvCount; 
       totalCount += recvCount; 
 
       free(recvFaces);
       free(recvFlux);
+      free(recvCentroid);
     }
 
     if (CURRENT_TIME < 1e-10) //Creates csv and prints headers for each file at calculation start and then prints data for every timestep
@@ -277,7 +271,7 @@ DEFINE_EXECUTE_AT_END(massSum)
       if (fp != NULL)
       {
         fprintf(fp, "time [s],sample mass [g]\n");
-        fprintf(fp, "%g,%.4g\n", 0.0, initMass * 1000.0);
+        fprintf(fp, "%g,%.6g\n", 0.0, initMass * 1000.0);
         fclose(fp);
       }
       else { Message("massSum: Failed to open sample_mass_history.csv.\n"); }
@@ -287,7 +281,7 @@ DEFINE_EXECUTE_AT_END(massSum)
       {
         fprintf(fa, "time [s]");
         for (col = 0; col < totalCount; col++)
-          fprintf(fa, ",face_%d [mg]", col + 1);
+          fprintf(fa, ",%.4g [mm]", faceCentroid[col]*1000.0);
         fprintf(fa, "\n");
 
         fprintf(fa, "%g", 0.0);
@@ -303,7 +297,7 @@ DEFINE_EXECUTE_AT_END(massSum)
       {
         fprintf(ff, "time [s]");
         for (col = 0; col < totalCount; col++)
-          fprintf(ff, ",face_%d [kg/m2s]", col + 1);
+          fprintf(ff, ",%.4g [mm]", faceCentroid[col]*1000.0);
         fprintf(ff, "\n");
 
         fprintf(ff, "%g", 0.0);
@@ -350,6 +344,7 @@ DEFINE_EXECUTE_AT_END(massSum)
 
   free(localFaces);
   free(localFlux);
+  free(localCentroid);
   udmi_updated = 0;
 
 #endif
