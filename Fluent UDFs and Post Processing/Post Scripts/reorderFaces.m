@@ -15,5 +15,5 @@ tempMatrix= table2array(Tbl(2:end,2:end));
 tempMatrix = [fixedHeaders; tempMatrix];
 [~,idx] = sort(tempMatrix(1,:),'ascend');
 tempMatrix = tempMatrix(:,idx);
-fixedMatrix = tempMatrix(2:end,:);
+fixedMatrix = tempMatrix(3:end,:);
 end
