@@ -22,7 +22,7 @@ if record == 1
     open(v);
 end
 
-figure()
+fig = figure();
 ylim([0 305])
 title("Pyrolysis Mass Flux")
 ylabel("Distance from Inlet [mm]")
@@ -37,6 +37,9 @@ if animate == 1
         title("Mass Flux at t="+j/100+"s")
         addpoints(gr,A(j,:),Yq(:,1)*1000);
         drawnow
+        if record == 1
+            writeVideo(v, getframe(fig));
+        end
     end
 else
     plot(A(idx,:),Yq(:,1)*1000)
