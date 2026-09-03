@@ -1,3 +1,4 @@
+%Will order columns of data csv by increasing face centroid
 function fixedMatrix = reorderFaces(Tbl)
 headers = Tbl.Properties.VariableNames;
 headers = headers(2:end);
