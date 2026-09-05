@@ -8,15 +8,19 @@
 #include "math.h"
 
 /*Constants in standard SI units*/
-#define TA 30196 /*Activation temperature*/
-#define A0 1.24e12 /*Pre-exponential term */
-#define ETA 1.0 /*Reaction efficiency*/
+#define TA1 30196 /*Activation temperature R1*/
+#define TA2 30196 /*Activation temperature R2*/
+#define A1 1.24e12 /*Pre-exponential term R1*/
+#define A2 1.24e12 /*Pre-exponential term R2*/
+
 #define TMIN 500.0 /*Minimum and maximum pyrolysis temperature */
 #define TMAX 900.0
+
 #define HOV 468000.0 /*Heat of vaporization*/
 
-#define MSTORE 0 /*Memory Locations for mass and mass flux*/
-#define MFSTORE 1
+#define M1STORE 0 /*Memory Locations for mass and mass flux*/
+#define M2STORE 1
+#define MFSTORE 2
 
 #define BCID 5 /*Boundary condition int ID for massSum and maximum number of faces on the boundary*/
 #define MAX_FACES 500
@@ -66,7 +70,6 @@ int udmi_updated = 0; /*Memory update flag*/
     begin_f_loop(f, thread)
     {
       real Tface;
-      real prr;
       real area[ND_ND];
       real A_mag;
       real init_mass;
@@ -83,11 +86,13 @@ int udmi_updated = 0; /*Memory update flag*/
       /* Initialize mass and mflux memory once */
       if (!initialized)
       {
-       F_UDMI(f, thread, MSTORE) = init_mass;
+       F_UDMI(f, thread, M1STORE) = init_mass;
+       F_UDMI(f, thread, M2STORE) = 0.0;
        F_UDMI(f,thread, MFSTORE) = 0.0;
       }
       
-      remaining_mass = F_UDMI(f, thread, 0);
+      remaining_mass1 = F_UDMI(f, thread, M1STORE);
+      remaining_mass2 = F_UDMI(f, thread, M2STORE);
       
       Tface = F_T(f, thread);
 
@@ -97,32 +102,54 @@ int udmi_updated = 0; /*Memory update flag*/
       }
 
       /* Fuel mass flux: kg/(s m^2) */
-      real k = ETA * A0 * exp(-TA / Tface);
-      real mflux = rho * thalf * k;
-
+      real k1 = A1 * exp(-TA1 / Tface);
+      real k2 = A2 * exp(-TA2 / Tface);
+       
+      
       /*Assigns mass flux based on face mass to ensure mass conservation*/
-      if (remaining_mass <= 0.0 || Tface < TMIN)
+      if (remaining_mass1 <= 0.0 || Tface < TMIN)
+      {
+        break;
+      }
+      else if (remaining_mass1 < rho * k1 * thalf * A_mag * dt)
+      {
+        if (!udmi_updated) 
+        {
+          F_UDMI(f, thread, M1STORE) = 0.0;
+          F_UDMI(f, thread, M2STORE) = remaining_mass2 + remaining_mass1;
+        }   
+      }
+      else
+      {
+       if (!udmi_updated) 
+       {
+         F_UDMI(f, thread, M1STORE) = remaining_mass1 - rho * k1 * thalf * A_mag * dt;
+         F_UDMI(f, thread, M2STORE) = remaining_mass2 + rho * k1 * thalf * A_mag * dt;
+        }
+      }
+
+      /*Second mass conservation logic block*/
+      if (remaining_mass2 <= 0.0 || Tface < TMIN)
       {
         F_PROFILE(f, thread, position) = 0.0;
         F_UDMI(f, thread, MFSTORE) = 0.0;
       }
-      else if (remaining_mass < mflux * A_mag * dt)
+      else if (remaining_mass2 < rho * k2 * thalf * A_mag * dt)
       {
-        F_PROFILE(f, thread, position) = remaining_mass / (A_mag * dt);
+        F_PROFILE(f, thread, position) = remaining_mass2 / (A_mag * dt);
         if (!udmi_updated) 
         {
-          F_UDMI(f, thread, MSTORE) = 0.0;
-          F_UDMI(f, thread, MFSTORE) = remaining_mass / (A_mag * dt);
+          F_UDMI(f, thread, M2STORE) = 0.0;
+          F_UDMI(f, thread, MFSTORE) = remaining_mass2 / (A_mag * dt);
         }
-          
       }
       else
       {
-       F_PROFILE(f, thread, position) = mflux;
+       F_PROFILE(f, thread, position) = rho * k2 * thalf * A_mag * dt;
        if (!udmi_updated) 
        {
-         F_UDMI(f, thread, MSTORE) = remaining_mass - mflux * A_mag * dt;
-         F_UDMI(f, thread, MFSTORE) = mflux;
+         F_UDMI(f, thread, M2STORE) = remaining_mass2 - rho * k2 * thalf * A_mag * dt;
+         F_UDMI(f, thread, MFSTORE) = rho * k2 * thalf * A_mag * dt;
         }
       }
     }
