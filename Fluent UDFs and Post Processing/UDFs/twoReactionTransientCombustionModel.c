@@ -1,5 +1,5 @@
 /**********************************************************************
-  transientCombustionModel.c 
+  twoEquationTransientCombustionModel.c 
   Header file containing Fluent User Defined Functions (UDFs) for a boundary condition pyrolysis model for transient combusiton: pyrolysis_release_rate, heat_absorption_rate, massSum
   !Caution massSum will overwrite the three csv files it outputs if they are not moved or renamed!
  ***********************************************************************/
@@ -149,7 +149,7 @@ int udmi_updated = 0; /*Memory update flag*/
        if (!udmi_updated) 
        {
          F_UDMI(f, thread, M2STORE) = remaining_mass2 - rho * k2 * thalf * A_mag * dt;
-         F_UDMI(f, thread, MFSTORE) = rho * k2 * thalf * A_mag * dt;
+         F_UDMI(f, thread, MFSTORE) = rho * k2 * thalf;
         }
       }
     }
