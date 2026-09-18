@@ -13,7 +13,8 @@
 #define A1 7.09e11 /*Pre-exponential term R1*/
 #define A2 1.7e9 /*Pre-exponential term R2*/
 
-#define TMIN 500.0 /*Minimum and maximum pyrolysis temperature */
+#define TMIN1 500.0 /*Minimum and maximum pyrolysis temperature */
+#define TMIN2 500.0
 #define TMAX 900.0
 
 #define HOV 468000.0 /*Heat of vaporization*/
@@ -107,11 +108,11 @@ int udmi_updated = 0; /*Memory update flag*/
        
       
       /*Assigns mass flux based on face mass to ensure mass conservation*/
-      if (remaining_mass1 <= 0.0 || Tface < TMIN)
+      if (remaining_mass1 <= 0.0 || Tface < TMIN1)
       {
         break;
       }
-      else if (remaining_mass1 < rho * k1 * thalf * A_mag * dt)
+      else if (1 < k1 * dt)
       {
         if (!udmi_updated) 
         {
@@ -123,18 +124,20 @@ int udmi_updated = 0; /*Memory update flag*/
       {
        if (!udmi_updated) 
        {
-         F_UDMI(f, thread, M1STORE) = remaining_mass1 - rho * k1 * thalf * A_mag * dt;
-         F_UDMI(f, thread, M2STORE) = remaining_mass2 + rho * k1 * thalf * A_mag * dt;
+         F_UDMI(f, thread, M1STORE) = remaining_mass1 * (1 - k1 * dt);
+         F_UDMI(f, thread, M2STORE) = remaining_mass2 + remaining_mass1 * k1 * dt;
         }
       }
 
+      remaining_mass2 = F_UDMI(f, thread, M2STORE); //Technically a half-timestep mass so that the produced mass of R1 is part of remaining_mass2
+
       /*Second mass conservation logic block*/
-      if (remaining_mass2 <= 0.0 || Tface < TMIN)
+      if (remaining_mass2 <= 0.0 || Tface < TMIN2)
       {
         F_PROFILE(f, thread, position) = 0.0;
         F_UDMI(f, thread, MFSTORE) = 0.0;
       }
-      else if (remaining_mass2 < rho * k2 * thalf * A_mag * dt)
+      else if (1 < k2 * dt)
       {
         F_PROFILE(f, thread, position) = remaining_mass2 / (A_mag * dt);
         if (!udmi_updated) 
@@ -145,11 +148,11 @@ int udmi_updated = 0; /*Memory update flag*/
       }
       else
       {
-       F_PROFILE(f, thread, position) = rho * k2 * thalf * A_mag * dt;
+       F_PROFILE(f, thread, position) = (remaining_mass2 * k2) / A_mag;
        if (!udmi_updated) 
        {
-         F_UDMI(f, thread, M2STORE) = remaining_mass2 - rho * k2 * thalf * A_mag * dt;
-         F_UDMI(f, thread, MFSTORE) = rho * k2 * thalf;
+         F_UDMI(f, thread, M2STORE) = remaining_mass2 * (1 - k2 * dt);
+         F_UDMI(f, thread, MFSTORE) = (remaining_mass2 * k2) / A_mag;
         }
       }
     }
