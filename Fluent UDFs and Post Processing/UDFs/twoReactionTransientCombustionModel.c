@@ -109,7 +109,7 @@ int udmi_updated = 0; /*Memory update flag*/
        
       
       /*Assigns mass flux based on face mass to ensure mass conservation*/
-      if (remaining_mass1 <= 0.0 || Tface < TMIN)
+      if (remaining_mass1 <= 0.0 || Tface < TMIN1)
       {
         break;
       }
@@ -131,7 +131,7 @@ int udmi_updated = 0; /*Memory update flag*/
       }
 
       /*Second mass conservation logic block*/
-      if (remaining_mass2 <= 0.0 || Tface < TMIN)
+      if (remaining_mass2 <= 0.0 || Tface < TMIN2)
       {
         F_PROFILE(f, thread, position) = 0.0;
         F_UDMI(f, thread, MFSTORE) = 0.0;
