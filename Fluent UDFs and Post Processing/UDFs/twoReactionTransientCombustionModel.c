@@ -1,5 +1,5 @@
 /**********************************************************************
-  twoEquationTransientCombustionModel.c 
+  twoReactionTransientCombustionModel.c 
   Header file containing Fluent User Defined Functions (UDFs) for a boundary condition pyrolysis model for transient combusiton: pyrolysis_release_rate, heat_absorption_rate, massSum
   !Caution massSum will overwrite the three csv files it outputs if they are not moved or renamed!
  ***********************************************************************/
@@ -13,7 +13,8 @@
 #define A1 1.24e12 /*Pre-exponential term R1*/
 #define A2 1.24e12 /*Pre-exponential term R2*/
 
-#define TMIN 500.0 /*Minimum and maximum pyrolysis temperature */
+#define TMIN1 500.0 /*Minimum and maximum pyrolysis temperature */
+#define TMIN2 500.0
 #define TMAX 900.0
 
 #define HOV 468000.0 /*Heat of vaporization*/
@@ -73,7 +74,8 @@ int udmi_updated = 0; /*Memory update flag*/
       real area[ND_ND];
       real A_mag;
       real init_mass;
-      real remaining_mass;
+      real remaining_mass1;
+      real remaining_mass2;
 
       /* Face area magnitude*/
       F_AREA(area, f, thread);
@@ -220,7 +222,7 @@ DEFINE_EXECUTE_AT_END(massSum)
     if (PRINCIPAL_FACE_P(f, t))
     {
       F_CENTROID(centroid, f, t);
-      localCentroid = centroid[1];
+      localCentroid[i] = centroid[1];
       localFaces[i] = F_UDMI(f, t, M1STORE) + F_UDMI(f, t, M2STORE);
       localFlux[i] = F_UDMI(f, t, MFSTORE);
       localMass += F_UDMI(f, t, M1STORE);
