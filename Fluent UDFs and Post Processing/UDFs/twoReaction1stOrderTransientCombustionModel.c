@@ -111,7 +111,7 @@ int udmi_updated = 0; /*Memory update flag*/
       /*Assigns mass flux based on face mass to ensure mass conservation*/
       if (remaining_mass1 <= 0.0 || Tface < TMIN1)
       {
-        break;
+        continue;
       }
       else if (1 < k1 * dt)
       {
