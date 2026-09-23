@@ -111,49 +111,101 @@ int udmi_updated = 0; /*Memory update flag*/
       /*Assigns mass flux based on face mass to ensure mass conservation*/
       if (remaining_mass1 <= 0.0 || Tface < TMIN1)
       {
-        continue;
+        if (remaining_mass2 <= 0.0 || Tface < TMIN2)
+        {
+          if (!udmi_updated) 
+          {
+            F_PROFILE(f, thread, position) = 0.0;
+            F_UDMI(f, thread, MFSTORE) = 0.0;
+          }
+        }
+        else if (k2 * dt > 1)
+        {
+          F_PROFILE(f, thread, position) = remaining_mass2 / (A_mag * dt);
+          if (!udmi_updated) 
+          {
+            F_UDMI(f, thread, M2STORE) = 0.0;
+            F_UDMI(f, thread, MFSTORE) = remaining_mass2 / (A_mag * dt);
+          }
+        }
+        else
+        {
+          F_PROFILE(f, thread, position) = (remaining_mass2 * k2) / A_mag;
+          if (!udmi_updated) 
+          {
+            F_UDMI(f, thread, M2STORE) = remaining_mass2 * (1 - k2 * dt);
+            F_UDMI(f, thread, MFSTORE) = (remaining_mass2 * k2) / A_mag;
+          }
+        }
       }
-      else if (1 < k1 * dt)
+      else if (k1 * dt > 1)
       {
         if (!udmi_updated) 
         {
           F_UDMI(f, thread, M1STORE) = 0.0;
-          F_UDMI(f, thread, M2STORE) = remaining_mass2 + remaining_mass1;
-        }   
+        }
+        
+        if (remaining_mass2 <= 0 || Tface < TMIN2)
+        {
+          F_PROFILE(f, thread, position) = 0.0;
+          if (!udmi_updated) 
+          {
+            F_UDMI(f, thread, MFSTORE) = 0.0;
+            F_UDMI(f, thread, M2STORE) = remaining_mass2 + remaining_mass1;
+          }
+        }
+        else if (fabs(remaining_mass2 * (1 - k2 * dt)) > remaining_mass1)
+        {
+          F_PROFILE(f, thread, position) = remaining_mass1 / (A_mag * dt);
+          if (!udmi_updated) 
+          {
+            F_UDMI(f, thread, MFSTORE) = remaining_mass1 / (A_mag * dt);
+            F_UDMI(f, thread, M2STORE) = 0;
+          }
+        }
+        else
+        {
+          F_PROFILE(f, thread, position) = (remaining_mass2 * k2) / A_mag;
+          if (!udmi_updated) 
+          {
+            F_UDMI(f, thread, MFSTORE) = (remaining_mass2 * k2) / A_mag;
+            F_UDMI(f, thread, M2STORE) = remaining_mass1 + remaining_mass2 * (1 - k2 * dt);
+          }
+        }
       }
       else
       {
-       if (!udmi_updated) 
-       {
-         F_UDMI(f, thread, M1STORE) = remaining_mass1 * (1 - k1 * dt);
-         F_UDMI(f, thread, M2STORE) = remaining_mass2 + remaining_mass1 * k1 * dt;
-        }
-      }
-
-      remaining_mass2 = F_UDMI(f, thread, M2STORE); //Technically a half-timestep mass so that the produced mass of R1 is part of remaining_mass2
-
-      /*Second mass conservation logic block*/
-      if (remaining_mass2 <= 0.0 || Tface < TMIN2)
-      {
-        F_PROFILE(f, thread, position) = 0.0;
-        F_UDMI(f, thread, MFSTORE) = 0.0;
-      }
-      else if (1 < k2 * dt)
-      {
-        F_PROFILE(f, thread, position) = remaining_mass2 / (A_mag * dt);
         if (!udmi_updated) 
         {
-          F_UDMI(f, thread, M2STORE) = 0.0;
-          F_UDMI(f, thread, MFSTORE) = remaining_mass2 / (A_mag * dt);
+          F_UDMI(f, thread, M2STORE) = remaining_mass1 * (1 - k1 * dt);
         }
-      }
-      else
-      {
-       F_PROFILE(f, thread, position) = (remaining_mass2 * k2) / A_mag;
-       if (!udmi_updated) 
-       {
-         F_UDMI(f, thread, M2STORE) = remaining_mass2 * (1 - k2 * dt);
-         F_UDMI(f, thread, MFSTORE) = (remaining_mass2 * k2) / A_mag;
+        
+        if (remaining_mass2 <= 0 || Tface < TMIN2)
+        {
+          F_PROFILE(f, thread, position) = 0.0;
+          if (!udmi_updated) 
+          {
+            F_UDMI(f, thread, MFSTORE) = 0.0;
+            F_UDMI(f, thread, M2STORE) = remaining_mass2 + remaining_mass1 * k1 * dt;
+          }
+        }
+        else if (fabs(remaining_mass2 * (1 - k2 * dt)) > remaining_mass1 * k1 * dt)
+        {
+          F_PROFILE(f, thread, position) = (remaining_mass1 * k1) / A_mag;
+          if (!udmi_updated) 
+          {
+            F_UDMI(f, thread, MFSTORE) = (remaining_mass1 * k1) / A_mag;
+            F_UDMI(f, thread, M2STORE) = 0;
+          }
+        }
+        else
+        {
+          F_PROFILE(f, thread, position) = (remaining_mass2 * k2) / A_mag;
+          if (!udmi_updated) 
+          {
+            F_UDMI(f, thread, MFSTORE) = (remaining_mass2 * k2) / A_mag;
+            F_UDMI(f, thread, M2STORE) = remaining_mass1 * k1 * dt + remaining_mass2 * (1 - k2 * dt);
+          }
         }
       }
     }
