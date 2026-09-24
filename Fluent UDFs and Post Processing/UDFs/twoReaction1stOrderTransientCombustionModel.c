@@ -8,12 +8,12 @@
 #include "math.h"
 
 /*Constants in standard SI units*/
-#define TA1 21409 /*Activation temperature R1*/
-#define TAC 23050 /*Activation temperature Rc*/
-#define TAV 23050 /*Activation temperature Rv*/
-#define A1 7.09e11 /*Pre-exponential term R1*/
-#define AC 1.7e9 /*Pre-exponential term R2*/
-#define AV 1.7e9 /*Pre-exponential term R2*/
+#define TA1 22421 /*Activation temperature R1*/
+#define TAC 20735 /*Activation temperature Rc*/
+#define TAV 23603 /*Activation temperature Rv*/
+#define A1 6.37e13 /*Pre-exponential term R1*/
+#define AC 1.53e12 /*Pre-exponential term R2*/
+#define AV 1.49e15 /*Pre-exponential term R2*/
 
 #define TMIN1 500.0 /*Minimum and maximum pyrolysis temperature */
 #define TMIN2 500.0
