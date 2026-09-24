@@ -109,7 +109,7 @@ int udmi_updated = 0; /*Memory update flag*/
         F_PROFILE(f, thread, position) = 0.0;
         F_UDMI(f, thread, MFSTORE) = 0.0;
       }
-      else if (remaining_mass < mflux * A_mag * dt)
+      else if (remaining_mass < (mflux * A_mag) / dt)
       {
         F_PROFILE(f, thread, position) = remaining_mass / (A_mag * dt);
         if (!udmi_updated) 
@@ -124,7 +124,7 @@ int udmi_updated = 0; /*Memory update flag*/
        F_PROFILE(f, thread, position) = mflux;
        if (!udmi_updated) 
        {
-         F_UDMI(f, thread, MSTORE) = remaining_mass - mflux * A_mag * dt;
+         F_UDMI(f, thread, MSTORE) = remaining_mass - (mflux * A_mag) / dt;
          F_UDMI(f, thread, MFSTORE) = mflux;
         }
       }
