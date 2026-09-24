@@ -12,8 +12,8 @@
 #define TAC 20735 /*Activation temperature Rc*/
 #define TAV 23603 /*Activation temperature Rv*/
 #define A1 6.37e13 /*Pre-exponential term R1*/
-#define AC 1.53e12 /*Pre-exponential term R2*/
-#define AV 1.49e15 /*Pre-exponential term R2*/
+#define AC 1.53e12 /*Pre-exponential term Rc*/
+#define AV 1.49e15 /*Pre-exponential term Rv*/
 
 #define TMIN1 500.0 /*Minimum and maximum pyrolysis temperature */
 #define TMIN2 500.0
