@@ -9,9 +9,11 @@
 
 /*Constants in standard SI units*/
 #define TA1 21409 /*Activation temperature R1*/
-#define TA2 23050 /*Activation temperature R2*/
+#define TAc 23050 /*Activation temperature Rc*/
+#define TAv 23050 /*Activation temperature Rv*/
 #define A1 7.09e11 /*Pre-exponential term R1*/
-#define A2 1.7e9 /*Pre-exponential term R2*/
+#define Ac 1.7e9 /*Pre-exponential term R2*/
+#define Av 1.7e9 /*Pre-exponential term R2*/
 
 #define TMIN1 500.0 /*Minimum and maximum pyrolysis temperature */
 #define TMIN2 500.0
@@ -105,7 +107,9 @@ int udmi_updated = 0; /*Memory update flag*/
 
       /* Fuel mass flux: kg/(s m^2) */
       real k1 = A1 * exp(-TA1 / Tface);
-      real k2 = A2 * exp(-TA2 / Tface);
+      real kc = Ac * exp(-TAc / Tface);
+      real kv = Av * exp(-TAv / Tface);
+      real k2 = sqrt(kc*kv);
        
       
       /*Assigns mass flux based on face mass to ensure mass conservation*/
