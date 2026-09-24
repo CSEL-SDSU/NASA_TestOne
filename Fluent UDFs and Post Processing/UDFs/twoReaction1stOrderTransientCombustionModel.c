@@ -9,11 +9,11 @@
 
 /*Constants in standard SI units*/
 #define TA1 21409 /*Activation temperature R1*/
-#define TAc 23050 /*Activation temperature Rc*/
-#define TAv 23050 /*Activation temperature Rv*/
+#define TAC 23050 /*Activation temperature Rc*/
+#define TAV 23050 /*Activation temperature Rv*/
 #define A1 7.09e11 /*Pre-exponential term R1*/
-#define Ac 1.7e9 /*Pre-exponential term R2*/
-#define Av 1.7e9 /*Pre-exponential term R2*/
+#define AC 1.7e9 /*Pre-exponential term R2*/
+#define AV 1.7e9 /*Pre-exponential term R2*/
 
 #define TMIN1 500.0 /*Minimum and maximum pyrolysis temperature */
 #define TMIN2 500.0
@@ -107,8 +107,8 @@ int udmi_updated = 0; /*Memory update flag*/
 
       /* Fuel mass flux: kg/(s m^2) */
       real k1 = A1 * exp(-TA1 / Tface);
-      real kc = Ac * exp(-TAc / Tface);
-      real kv = Av * exp(-TAv / Tface);
+      real kc = AC * exp(-TAC / Tface);
+      real kv = AV * exp(-TAV / Tface);
       real k2 = sqrt(kc*kv);
        
       
