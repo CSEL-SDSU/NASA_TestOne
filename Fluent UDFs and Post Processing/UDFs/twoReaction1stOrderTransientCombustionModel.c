@@ -119,7 +119,7 @@ int udmi_updated = 0; /*Memory update flag*/
             F_UDMI(f, thread, MFSTORE) = 0.0;
           }
         }
-        else if (k2 * dt > 1)
+        else if (k2 * dt > 1.0)
         {
           F_PROFILE(f, thread, position) = remaining_mass2 / (A_mag * dt);
           if (!udmi_updated) 
@@ -133,19 +133,19 @@ int udmi_updated = 0; /*Memory update flag*/
           F_PROFILE(f, thread, position) = (remaining_mass2 * k2) / A_mag;
           if (!udmi_updated) 
           {
-            F_UDMI(f, thread, M2STORE) = remaining_mass2 * (1 - k2 * dt);
+            F_UDMI(f, thread, M2STORE) = remaining_mass2 * (1.0 - k2 * dt);
             F_UDMI(f, thread, MFSTORE) = (remaining_mass2 * k2) / A_mag;
           }
         }
       }
-      else if (k1 * dt > 1)
+      else if (k1 * dt > 1.0)
       {
         if (!udmi_updated) 
         {
           F_UDMI(f, thread, M1STORE) = 0.0;
         }
         
-        if (remaining_mass2 <= 0 || Tface < TMIN2)
+        if (remaining_mass2 <= 0.0 || Tface < TMIN2)
         {
           F_PROFILE(f, thread, position) = 0.0;
           if (!udmi_updated) 
@@ -160,7 +160,7 @@ int udmi_updated = 0; /*Memory update flag*/
           if (!udmi_updated) 
           {
             F_UDMI(f, thread, MFSTORE) = (remaining_mass1 + remaining_mass2) / (A_mag * dt);
-            F_UDMI(f, thread, M2STORE) = 0;
+            F_UDMI(f, thread, M2STORE) = 0.0;
           }
         }
         else
@@ -169,7 +169,7 @@ int udmi_updated = 0; /*Memory update flag*/
           if (!udmi_updated) 
           {
             F_UDMI(f, thread, MFSTORE) = (remaining_mass2 * k2) / A_mag;
-            F_UDMI(f, thread, M2STORE) = remaining_mass1 + remaining_mass2 * (1 - k2 * dt);
+            F_UDMI(f, thread, M2STORE) = remaining_mass1 + remaining_mass2 * (1.0 - k2 * dt);
           }
         }
       }
@@ -177,10 +177,10 @@ int udmi_updated = 0; /*Memory update flag*/
       {
         if (!udmi_updated) 
         {
-          F_UDMI(f, thread, M2STORE) = remaining_mass1 * (1 - k1 * dt);
+          F_UDMI(f, thread, M1STORE) = remaining_mass1 * (1.0 - k1 * dt);
         }
         
-        if (remaining_mass2 <= 0 || Tface < TMIN2)
+        if (remaining_mass2 <= 0.0 || Tface < TMIN2)
         {
           F_PROFILE(f, thread, position) = 0.0;
           if (!udmi_updated) 
@@ -195,7 +195,7 @@ int udmi_updated = 0; /*Memory update flag*/
           if (!udmi_updated) 
           {
             F_UDMI(f, thread, MFSTORE) = (remaining_mass1 * k1 * dt + remaining_mass2) / (A_mag * dt);
-            F_UDMI(f, thread, M2STORE) = 0;
+            F_UDMI(f, thread, M2STORE) = 0.0;
           }
         }
         else
@@ -204,7 +204,7 @@ int udmi_updated = 0; /*Memory update flag*/
           if (!udmi_updated) 
           {
             F_UDMI(f, thread, MFSTORE) = (remaining_mass2 * k2) / A_mag;
-            F_UDMI(f, thread, M2STORE) = remaining_mass1 * k1 * dt + remaining_mass2 * (1 - k2 * dt);
+            F_UDMI(f, thread, M2STORE) = remaining_mass1 * k1 * dt + remaining_mass2 * (1.0 - k2 * dt);
           }
         }
       }
