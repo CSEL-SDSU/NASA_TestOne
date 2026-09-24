@@ -8,9 +8,11 @@
 #include "math.h"
 
 /*Constants in standard SI units*/
-#define TA 30196 /*Activation temperature*/
-#define A0 1.24e12 /*Pre-exponential term */
-#define ETA 1.0 /*Reaction efficiency*/
+#define TA1 30196 /*Activation temperature*/
+#define A1 1.24e12 /*Pre-exponential term */
+#define TA2 30196 /*Activation temperature*/
+#define A2 1.24e12 /*Pre-exponential term */
+
 #define TMIN 500.0 /*Minimum and maximum pyrolysis temperature */
 #define TMAX 900.0
 #define HOV 468000.0 /*Heat of vaporization*/
@@ -96,9 +98,10 @@ int udmi_updated = 0; /*Memory update flag*/
         Tface = TMAX;
       }
 
-      /* Fuel mass flux: kg/(s m^2) */
-      real k = ETA * A0 * exp(-TA / Tface);
-      real mflux = rho * thalf * k;
+      real k1 = A1 * exp(-TA1 / Tface);
+      real k2 = A2 * exp(-TA2 / Tface);
+      real k = sqrt(k1 * k2);
+      real mflux = (remaining_mass * k) / A_mag;
 
       /*Assigns mass flux based on face mass to ensure mass conservation*/
       if (remaining_mass <= 0.0 || Tface < TMIN)
