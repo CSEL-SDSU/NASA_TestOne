@@ -109,7 +109,7 @@ int udmi_updated = 0; /*Memory update flag*/
       real k1 = A1 * exp(-TA1 / Tface);
       real kc = AC * exp(-TAC / Tface);
       real kv = AV * exp(-TAV / Tface);
-      real k2 = sqrt(kc*kv);
+      real k2 = kc + kv;
        
       
       /*Assigns mass flux based on face mass to ensure mass conservation*/
