@@ -232,7 +232,7 @@ DEFINE_PROFILE(heat_absorption_rate, thread, position)
 
      begin_f_loop(f, thread)
      { 
-       F_PROFILE(f, thread, position) = -(HOV + 100*(550)) * F_UDMI(f, thread, MFSTORE); //HOV added to approximate amount of heat required to heat sample to vaporization temp multiplied by mass flux
+       F_PROFILE(f, thread, position) = -(HOV + (1400-1300)*(TMAX-300)) * F_UDMI(f, thread, MFSTORE); //HOV added to approximate amount of heat required to heat sample to vaporization temp multiplied by mass flux
      }
      end_f_loop(f, thread)
    #endif
