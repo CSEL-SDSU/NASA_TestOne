@@ -176,6 +176,7 @@ DEFINE_EXECUTE_AT_END(massSum)
   real *localFaces;
   real *localFlux;
   real *localCentroid;
+  real *localTemp;
 
   //Counts faces on thread
   begin_f_loop(f, t)
@@ -189,17 +190,20 @@ DEFINE_EXECUTE_AT_END(massSum)
   localFaces = (real *)malloc(localCount * sizeof(real));
   localFlux = (real *)malloc(localCount * sizeof(real));
   localCentroid = (real *)malloc(localCount * sizeof(real));
-  
+  localTemp = (real *)malloc(localCount * sizeof(real));
+
   i = 0;
   begin_f_loop(f, t) //Access user memory at every face
   {
     if (PRINCIPAL_FACE_P(f, t))
     {
       F_CENTROID(centroid, f, t);
-      localCentroid = centroid[1];
-      localFaces[i] = F_UDMI(f, t, MSTORE);
+      localCentroid[i] = centroid[1];
+      localFaces[i] = F_UDMI(f, t, M1STORE) + F_UDMI(f, t, M2STORE);
       localFlux[i] = F_UDMI(f, t, MFSTORE);
-      localMass += F_UDMI(f, t, MSTORE);
+      localTemp[i] = F_UDMI(f, t, TSTORE);
+      localMass += F_UDMI(f, t, M1STORE);
+      localMass += F_UDMI(f, t, M2STORE);
       i++;
     }
   }
@@ -211,6 +215,7 @@ DEFINE_EXECUTE_AT_END(massSum)
     PRF_CSEND_REAL(node_zero, localFaces, localCount, myid);
     PRF_CSEND_REAL(node_zero, localFlux, localCount, myid);
     PRF_CSEND_REAL(node_zero, localCentroid, localCount, myid);
+    PRF_CSEND_REAL(node_zero, localTemp, localCount, myid);
     PRF_CSEND_REAL(node_zero, &localMass, 1, myid);
   }
   else
@@ -220,19 +225,22 @@ DEFINE_EXECUTE_AT_END(massSum)
     real allFaces[MAX_FACES];
     real allFlux[MAX_FACES];
     real faceCentroid[MAX_FACES];
+    real allTemp[MAX_FACES];
     int recvCount;
     real recvMass;
     real *recvFaces;
     real *recvFlux;
     real *recvCentroid;
+    real *recvTemp;
     int col;
-    FILE *fp, *fa, *ff;
+    FILE *fp, *fa, *ff, *ft;
 
     for (j = 0; j < localCount; j++)
     {
       allFaces[j] = localFaces[j];
       allFlux[j] = localFlux[j];
       faceCentroid[j]  = localCentroid[j];
+      allTemp[j] = localTemp[j];
     }
 
     int offset = localCount;
@@ -243,9 +251,11 @@ DEFINE_EXECUTE_AT_END(massSum)
       recvFaces = (real *)malloc(recvCount * sizeof(real));
       recvFlux = (real *)malloc(recvCount * sizeof(real));
       recvCentroid = (real *)malloc(recvCount * sizeof(real));
+      recvTemp = (real *)malloc(recvCount * sizeof(real));
       PRF_CRECV_REAL(i, recvFaces, recvCount, i);
       PRF_CRECV_REAL(i, recvFlux, recvCount, i);
-      PRF_CRECV_REAL(i, recvCentroid,   recvCount, i);
+      PRF_CRECV_REAL(i, recvCentroid, recvCount, i);
+      PRF_CRECV_REAL(i, recvTemp, recvCount, i);
       PRF_CRECV_REAL(i, &recvMass, 1, i);
 
       globalMass += recvMass;
@@ -254,6 +264,7 @@ DEFINE_EXECUTE_AT_END(massSum)
         allFaces[offset + j] = recvFaces[j];
         allFlux[offset + j] = recvFlux[j];
         faceCentroid[offset + j]  = recvCentroid[j];
+        allTemp[offset + j] = recvTemp[j];
       }
       offset += recvCount; 
       totalCount += recvCount; 
@@ -261,6 +272,7 @@ DEFINE_EXECUTE_AT_END(massSum)
       free(recvFaces);
       free(recvFlux);
       free(recvCentroid);
+      free(recvTemp);
     }
 
     if (CURRENT_TIME < 1e-10) //Creates csv and prints headers for each file at calculation start and then prints data for every timestep
@@ -284,7 +296,7 @@ DEFINE_EXECUTE_AT_END(massSum)
 
         fprintf(fa, "%g", 0.0);
         for (col = 0; col < totalCount; col++)
-          fprintf(fa, ",%.4g", allFaces[col] * 1000000.0);
+          fprintf(fa, ",%.4g", (initMass/((real)totalCount)) * 1000000.0);
         fprintf(fa, "\n");
         fclose(fa);
       }
@@ -305,6 +317,22 @@ DEFINE_EXECUTE_AT_END(massSum)
         fclose(ff);
       }
       else { Message("massSum: Failed to open face_flux_history.csv.\n"); }
+
+      ft = fopen("face_temp_history.csv", "w");
+      if (ft != NULL)
+      {
+        fprintf(ft, "time [s]");
+        for (col = 0; col < totalCount; col++)
+          fprintf(ft, ",%.4g [mm]", faceCentroid[col]*1000.0);
+        fprintf(ft, "\n");
+
+        fprintf(ft, "%g", 0.0);
+        for (col = 0; col < totalCount; col++)
+          fprintf(ft, ",%f", allTemp[col]);
+        fprintf(ft, "\n");
+        fclose(ft);
+      }
+      else { Message("massSum: Failed to open face_temp_history.csv.\n"); }
     }
     else
     {
@@ -337,12 +365,24 @@ DEFINE_EXECUTE_AT_END(massSum)
         fclose(ff);
       }
       else { Message("massSum: Failed to append to face_flux_history.csv.\n"); }
+
+      ft = fopen("face_temp_history.csv", "a");
+      if (ft != NULL)
+      {
+        fprintf(ft, "%g", CURRENT_TIME);
+        for (col = 0; col < totalCount; col++)
+          fprintf(ft, ",%f", allTemp[col]);
+        fprintf(ft, "\n");
+        fclose(ft);
+      }
+      else { Message("massSum: Failed to append to face_temp_history.csv.\n"); }
     }
   }
 
   free(localFaces);
   free(localFlux);
   free(localCentroid);
+  free(localTemp);
   udmi_updated = 0;
 
 #endif
