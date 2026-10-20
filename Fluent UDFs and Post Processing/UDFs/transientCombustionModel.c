@@ -199,11 +199,10 @@ DEFINE_EXECUTE_AT_END(massSum)
     {
       F_CENTROID(centroid, f, t);
       localCentroid[i] = centroid[1];
-      localFaces[i] = F_UDMI(f, t, M1STORE) + F_UDMI(f, t, M2STORE);
+      localFaces[i] = F_UDMI(f, t, MSTORE);
       localFlux[i] = F_UDMI(f, t, MFSTORE);
       localTemp[i] = F_UDMI(f, t, TSTORE);
-      localMass += F_UDMI(f, t, M1STORE);
-      localMass += F_UDMI(f, t, M2STORE);
+      localMass += F_UDMI(f, t, MSTORE);
       i++;
     }
   }
