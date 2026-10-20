@@ -19,6 +19,7 @@
 
 #define MSTORE 0 /*Memory Locations for mass and mass flux*/
 #define MFSTORE 1
+#define TSTORE 2
 
 #define BCID 5 /*Boundary condition int ID for massSum and maximum number of faces on the boundary*/
 #define MAX_FACES 500
