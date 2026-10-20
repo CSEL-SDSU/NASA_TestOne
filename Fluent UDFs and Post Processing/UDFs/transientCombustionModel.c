@@ -93,6 +93,7 @@ int udmi_updated = 0; /*Memory update flag*/
       remaining_mass = F_UDMI(f, thread, 0);
       
       Tface = F_T(f, thread);
+      F_UDMI(f, thread, TSTORE) = Tface;
 
       if (Tface > TMAX)
       {
