@@ -8,10 +8,10 @@
 #include "math.h"
 
 /*Constants in standard SI units*/
-#define TA1 30196 /*Activation temperature*/
-#define A1 1.24e12 /*Pre-exponential term */
-#define TA2 30196 /*Activation temperature*/
-#define A2 1.24e12 /*Pre-exponential term */
+#define TA1 14590 /*Activation temperature*/
+#define A1 1.75e5 /*Pre-exponential term */
+#define TA2 22962 /*Activation temperature*/
+#define A2 1.33e14 /*Pre-exponential term */
 
 #define TMIN 500.0 /*Minimum and maximum pyrolysis temperature */
 #define TMAX 900.0
