@@ -58,7 +58,8 @@ Command 4:
 /define/models/unsteady-2nd-order yes                                                                                   //comment: these two are for radiation bcs so remove when no radiation and remove parentheses
 /solve/execute-commands/add-edit savefile no 1 "flow-time" ,
 /solve/execute-commands/add-edit ignitoroff yes no "flow-time" 0.5 ,
+/solve/execute-commands/disable sstot
+/define/boundary-conditions/fluid 17 fluid no no yes no no no no no no no no no no no no yes 900 no no yes yes no yes yes 0
 /define/boundary-conditions/wall sampleface no 0 no 0 no yes heat-flux yes yes udf "heat_absorption_rate::libudf" no no (no 1) yes yes yes yes yes yes udf "pyrolysis_release_rate::libudf" no 0 no 0 no 0 no 1 
 /solve/set/time-step 0.001 
-/solve/dual-time-iterate 15000 20          //comment: 15000/0.0001 = 15s at 20 iterations per timestep
-/solve/execute-commands/disable sstot      //comment: put all commands under one and then turn it off after executing at end of steady state solution
+/solve/dual-time-iterate 15000 20          //comment: 15000/0.0001 = 15s at 20 iterations per timestep      
