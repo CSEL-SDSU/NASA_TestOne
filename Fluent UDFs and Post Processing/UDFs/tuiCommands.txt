@@ -59,6 +59,7 @@ Command 4:
 /solve/execute-commands/add-edit savefile no 1 "flow-time" ,
 /solve/execute-commands/add-edit ignitoroff yes no "flow-time" 0.5 ,
 /solve/execute-commands/disable sstot
+/define/user-defined/function-hooks/execute-at-end "massSum::libudf" ""
 /define/boundary-conditions/fluid 17 fluid no no yes no no no no no no no no no no no no yes 900 no no yes yes no yes yes 0
 /define/boundary-conditions/wall sampleface no 0 no 0 no yes heat-flux yes yes udf "heat_absorption_rate::libudf" no no (no 1) yes yes yes yes yes yes udf "pyrolysis_release_rate::libudf" no 0 no 0 no 0 no 1 
 /solve/set/time-step 0.001 
