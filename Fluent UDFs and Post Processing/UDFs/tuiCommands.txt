@@ -53,9 +53,10 @@ or
 /define/boundary-conditions/fluid 17 fluid no no no no no yes yes no yes yes 0 
 
 Command 4:
-// Steady state to transient
+// Steady state to transient (test commands since some models change the order of responses) 
+//these commands:change case to transient mode, activate and configure the above commands, disable this command block so it wont run twice, set the udfs at the sample boundary and function hook, turn on the ignitor, set the time step etc. and run the solver.
 
-/define/models/unsteady-2nd-order yes                                                                                   //comment: these two are for radiation bcs so remove when no radiation and remove parentheses
+/define/models/unsteady-2nd-order yes                                                                                   
 /solve/execute-commands/add-edit savefile no 1 "flow-time" ,
 /solve/execute-commands/add-edit ignitoroff yes no "flow-time" 0.5 ,
 /solve/execute-commands/disable sstot
