@@ -29,6 +29,8 @@ classdef TestOneProject < matlab.apps.AppBase
         Label_2                         matlab.ui.control.Label
         ExportPressureButton            matlab.ui.control.Button
         ControlsPanel                   matlab.ui.container.Panel
+        CurrentAEditField               matlab.ui.control.NumericEditField
+        CurrentAEditFieldLabel          matlab.ui.control.Label
         ConnectO2SensorButton           matlab.ui.control.Button
         IgnitionTimesSpinner            matlab.ui.control.Spinner
         IgnitionTimesSpinnerLabel       matlab.ui.control.Label
@@ -82,6 +84,8 @@ classdef TestOneProject < matlab.apps.AppBase
         ReferencePressurekPaSpinner     matlab.ui.control.Spinner
         ReferencePressurekPaSpinnerLabel  matlab.ui.control.Label
         SetupPanel                      matlab.ui.container.Panel
+        LPMEditField                    matlab.ui.control.NumericEditField
+        LPMEditFieldLabel               matlab.ui.control.Label
         OxygenConcentrationEditField    matlab.ui.control.NumericEditField
         OxygenConcentrationLabel        matlab.ui.control.Label
         ScaleWeightgEditField           matlab.ui.control.NumericEditField
@@ -92,19 +96,19 @@ classdef TestOneProject < matlab.apps.AppBase
         FEditFieldLabel                 matlab.ui.control.Label
         ChamberTemperatureCSpinner      matlab.ui.control.Spinner
         ChamberTemperatureCSpinnerLabel  matlab.ui.control.Label
-        SLMEditField_12                 matlab.ui.control.NumericEditField
-        SLMEditField_12Label            matlab.ui.control.Label
+        SLPMEditField_3                 matlab.ui.control.NumericEditField
+        SLPMEditField_3Label            matlab.ui.control.Label
         InitialVolumeFlowRateLPMEditField_2  matlab.ui.control.NumericEditField
         InitialVolumeFlowRateLPMEditField_2Label  matlab.ui.control.Label
         SourceBGasDropDown              matlab.ui.control.DropDown
         SourceBGasDropDownLabel         matlab.ui.control.Label
-        InitialVolumeFlowRateTotalLPMSpinner  matlab.ui.control.Spinner
+        InletFlowSpeedcmsSpinner        matlab.ui.control.Spinner
         InitialVolumeFlowRateTotalLPMLabel  matlab.ui.control.Label
-        SLMEditField_8                  matlab.ui.control.NumericEditField
-        SLMEditField_8Label             matlab.ui.control.Label
+        SLPMEditField_2                 matlab.ui.control.NumericEditField
+        SLPMEditField_2Label            matlab.ui.control.Label
         TotalFlowSettingsLabel          matlab.ui.control.Label
-        SLMEditField                    matlab.ui.control.NumericEditField
-        SLMEditFieldLabel               matlab.ui.control.Label
+        SLPMEditField                   matlab.ui.control.NumericEditField
+        SLPMEditFieldLabel              matlab.ui.control.Label
         InitialVolumeFlowRateLPMEditField  matlab.ui.control.NumericEditField
         InitialVolumeFlowRateLPMEditFieldLabel  matlab.ui.control.Label
         SourceAGasDropDown              matlab.ui.control.DropDown
@@ -167,7 +171,9 @@ classdef TestOneProject < matlab.apps.AppBase
         weightTime; pressTime; O2Time;          %Timestamp vectors for data 
         ignitionTimestamp;
         
-        oneSecondTimer;
+        oneSecondTimer;                         %For non-blocking delay
+
+        igniterCurrent;                         %Read igniter current
     
     end
 
@@ -180,17 +186,20 @@ classdef TestOneProject < matlab.apps.AppBase
         function handleArdIncoming(app, src, ~)
             max = 100;                                                      %Number of values to average, also affects data rate of mass measurements 
             lcDataVector = zeros(1,max);                                    % (higher number means slower, lower seems to be more accurate but increased chance of outliers)
+            currentDataVector = zeros(1,max);
 
             for i = 1:max
-                ardOut = readline(src);
+                ardOut = strsplit(readline(src),',');
                 if isempty(ardOut)
                     return
                 end
 
-                lcDataVector(i) = str2double(ardOut);
+                lcDataVector(i) = str2double(ardOut(1));
+                currentDataVector(i) = str2double(ardOut(2));
             end
 
             app.weightOut = (mean(lcDataVector)/16) - 1000;                 %Averaging and converting to mV scale, subtracting amplifier offset
+            app.igniterCurrent = (currentDataVector(1)/1024)*5000;          %Avging like weight effects performance
         end
 
         % Handles incoming data sent from the O2 Sensor through the serial
@@ -214,9 +223,12 @@ classdef TestOneProject < matlab.apps.AppBase
                 clear src;
             end
 
+            t = timer();
+            t.StartDelay = 0.1;
+            t.TimerFcn = @(timerObj,~) writeline(src, "#MRAW ");
+            
             flush(src);
-            pause(0.1);
-            writeline(src, "#MRAW ");
+            start(t);
 
         end
         
@@ -226,8 +238,9 @@ classdef TestOneProject < matlab.apps.AppBase
         % taring the sacle, and data collection if recording is enabled.
         % Called by the ConnectArduinoButtonPushed function.
 
-        function lcChange(app, ~, ~)
+        function ardChange(app, ~, ~)
             app.ScaleWeightgEditField.Value = ((app.weightOut-app.zeroScale)/app.lcGain)*app.lcMax/(app.lcInput*app.lcRatio);
+            app.CurrentAEditField.Value = (app.igniterCurrent-2400)/100;
 
             if app.toggleWeight == true
                 app.weightVector = [app.weightVector app.ScaleWeightgEditField.Value];
@@ -314,7 +327,7 @@ classdef TestOneProject < matlab.apps.AppBase
             app.toggleWeight = false;
             app.toggleO2Concentration = false;
             app.zeroScale = 0;
-            app.gIVT = app.InitialVolumeFlowRateTotalLPMSpinner.Value;
+            app.gIVT = app.InletFlowSpeedcmsSpinner.Value;
             app.ignitionTime = app.IgnitionTimesSpinner.Value;
             app.lcInput = app.ExcitationVoltageVSpinner.Value;
             app.lcRatio = app.FullScaleOutputmVVSpinner.Value;
@@ -369,25 +382,29 @@ classdef TestOneProject < matlab.apps.AppBase
             %Calculates Density Correction Factor
             app.DC = (app.gChPress/app.gRefPress)*(app.ChTempK/app.RefTempK);
             app.DensityCorrectionFactorEditField.Value = app.DC;
+
+            Diam = 0.1905; %m
+            A = pi*(Diam/2)^2;
               
             %Total mass flow rate
-            app.QT1 = app.gIVT*app.DC;
-            app.SLMEditField_8.Value = app.QT1;
+            app.QT1 = (app.gIVT*600)*A*app.DC;
+            app.LPMEditField.Value = (app.gIVT*600)*A;
+            app.SLPMEditField_2.Value = app.QT1;
             
             %MFC B mass flow rate
             app.QB1 = (app.gOxyComp * app.QT1)/100;
-            app.SLMEditField_12.Value = app.QB1;
+            app.SLPMEditField_3.Value = app.QB1;
             
             %MFC A mass flow rate
             app.QA1 = (app.QT1 - app.QB1);
-            app.SLMEditField.Value = app.QA1;
+            app.SLPMEditField.Value = app.QA1;
             
             %Displays computed value of A
-            app.IVA = app.QA1;
+            app.IVA = app.QA1/app.DC;
             app.InitialVolumeFlowRateLPMEditField.Value = app.IVA;
             
             %Displays computed value of B
-            app.IVB = app.QB1;
+            app.IVB = app.QB1/app.DC;
             app.InitialVolumeFlowRateLPMEditField_2.Value = app.IVB;
                                                
         end
@@ -427,9 +444,9 @@ classdef TestOneProject < matlab.apps.AppBase
 
         end
 
-        % Value changed function: InitialVolumeFlowRateTotalLPMSpinner
-        function InitialVolumeFlowRateTotalLPMSpinnerValueChanged(app, event)
-            app.gIVT = app.InitialVolumeFlowRateTotalLPMSpinner.Value;
+        % Value changed function: InletFlowSpeedcmsSpinner
+        function InletFlowSpeedcmsSpinnerValueChanged(app, event)
+            app.gIVT = app.InletFlowSpeedcmsSpinner.Value;
           
         end
 
@@ -446,40 +463,20 @@ classdef TestOneProject < matlab.apps.AppBase
         % Button pushed function: StartButton
         function StartButtonPushed(app, event)
      
-            %Calculates Density Correction Factor
-            app.DC = (app.gChPress/app.gRefPress)*(app.ChTempK/app.RefTempK);
-            app.DensityCorrectionFactorEditField.Value = app.DC;
-            
-            %QT1
-            app.QT1 = app.gIVT*app.DC;
-            app.SLMEditField_8.Value = app.QT1;
-            
-            %QB1
-            app.QB1 = (app.gOxyComp*app.QT1)/100;
-            app.SLMEditField_12.Value = app.QB1;
-            
-            %QA1
-            app.QA1 = (app.QT1 - app.QB1);
-            app.SLMEditField.Value = app.QA1;
-            
-            %IVA
-            app.IVA = app.QA1;
-            app.InitialVolumeFlowRateLPMEditField.Value = app.IVA;
-            
-            %IVB
-            app.IVB = app.QB1;
-            app.InitialVolumeFlowRateLPMEditField_2.Value = app.IVB;
-            
+
+            if app.QA1 > 50 || app.QB1 > 50
+                app.QA1 = 0;
+                app.QB1 = 0;
+                msgbox("Flow Out of MFC Spec","Error","error")
+            end
 
             %N2
             app.N2Unit = 'A';
                
             %Display for SLM Capacity
             app.AFlow = calcFlow(app.QA1, app.N2Unit); 
-            app.EditField.Value = app.AFlow;
                 
             %Display for MFC flow
-            app.EditField_3.Value = app.QA1; %SLM
             setFlow(app.QA1, app.N2Unit);
             
             %O2   
@@ -487,17 +484,9 @@ classdef TestOneProject < matlab.apps.AppBase
                 
             %Display for SLM Capacity
             app.BFlow = calcFlow(app.QB1, app.O2Unit);
-            app.EditField_2.Value = app.BFlow;
                 
             %Display for MFC flow
-            app.EditField_5.Value = app.QB1; %SLM
             setFlow(app.QB1, app.O2Unit);
-            
-            %Display for Total Flow (Sum of the SLMs of MFCs A and B)
-            app.SLPMSetpointEditField.Value = app.EditField_3.Value + app.EditField_5.Value;
-
-            %Display for Total Volume (Sum of the cm/s of MFCs A and B)
-            app.LPMSetpointEditField.Value = app.SLPMSetpointEditField.Value/(app.DC);
                 
         end
 
@@ -571,8 +560,8 @@ classdef TestOneProject < matlab.apps.AppBase
             dPdt = [dPdt 0];
             
             testInfo = string(zeros(size(app.pressTime)));                 %Includes Column of test data and sizes vector
-            testInfo(1) = app.PSIAEditField_2.Value + "PSIA";
-            testInfo(2) = app.InitialVolumeFlowRateTotalLPMSpinner.Value + "LPM";
+            testInfo(1) = app.PSIASpinner.Value + "PSIA";
+            testInfo(2) = app.InletFlowSpeedcmsSpinner.Value + "cm/s";
             testInfo(3) = app.DesiredOxygenConcentrationOxygeninMixtureSpinner.Value + "%";
             testInfo(4) = app.ignitionTime + "s";
             testInfo(5:end) = ' ';
@@ -643,7 +632,7 @@ classdef TestOneProject < matlab.apps.AppBase
             configureTerminator(app.arduinoDevice, 'CR/LF');
             readline(app.arduinoDevice);
             configureCallback(app.arduinoDevice, "terminator", @app.handleArdIncoming);
-            addlistener(app, 'weightOut', 'PostSet', @app.lcChange);
+            addlistener(app, 'weightOut', 'PostSet', @app.ardChange);
 
         end
 
@@ -668,8 +657,8 @@ classdef TestOneProject < matlab.apps.AppBase
             dMdt = [dMdt 0];
 
             testInfo = string(zeros(size(app.weightTime)));
-            testInfo(1) = app.PSIAEditField_2.Value + "PSIA";
-            testInfo(2) = app.InitialVolumeFlowRateTotalLPMSpinner.Value + "LPM";
+            testInfo(1) = app.PSIASpinner.Value + "PSIA";
+            testInfo(2) = app.InletFlowSpeedcmsSpinner.Value + "cm/s";
             testInfo(3) = app.DesiredOxygenConcentrationOxygeninMixtureSpinner.Value + "%";
             testInfo(4) = app.ignitionTime + "s";
             testInfo(5:end) = ' ';
@@ -787,8 +776,8 @@ classdef TestOneProject < matlab.apps.AppBase
             dCdt = [dCdt 0];
 
             testInfo = string(zeros(size(app.O2Time)));
-            testInfo(1) = app.PSIAEditField_2.Value + "PSIA";
-            testInfo(2) = app.InitialVolumeFlowRateTotalLPMSpinner.Value + "LPM";
+            testInfo(1) = app.PSIASpinner.Value + "PSIA";
+            testInfo(2) = app.InletFlowSpeedcmsSpinner.Value + "cm/s";
             testInfo(3) = app.DesiredOxygenConcentrationOxygeninMixtureSpinner.Value + "%";
             testInfo(4) = app.ignitionTime + "s";
             testInfo(5:end) = ' ';
@@ -856,8 +845,9 @@ classdef TestOneProject < matlab.apps.AppBase
             % Create ChamberPressurekPaSpinnerLabel
             app.ChamberPressurekPaSpinnerLabel = uilabel(app.SetupPanel);
             app.ChamberPressurekPaSpinnerLabel.HorizontalAlignment = 'center';
+            app.ChamberPressurekPaSpinnerLabel.FontWeight = 'bold';
             app.ChamberPressurekPaSpinnerLabel.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
-            app.ChamberPressurekPaSpinnerLabel.Position = [317 126 138 22];
+            app.ChamberPressurekPaSpinnerLabel.Position = [314 126 144 22];
             app.ChamberPressurekPaSpinnerLabel.Text = 'Chamber Pressure (kPa)';
 
             % Create ChamberPressurekPaSpinner
@@ -953,8 +943,9 @@ classdef TestOneProject < matlab.apps.AppBase
             % Create SensorPressurePSIAEditFieldLabel
             app.SensorPressurePSIAEditFieldLabel = uilabel(app.SetupPanel);
             app.SensorPressurePSIAEditFieldLabel.HorizontalAlignment = 'center';
+            app.SensorPressurePSIAEditFieldLabel.FontWeight = 'bold';
             app.SensorPressurePSIAEditFieldLabel.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
-            app.SensorPressurePSIAEditFieldLabel.Position = [841 161 133 22];
+            app.SensorPressurePSIAEditFieldLabel.Position = [838 161 140 22];
             app.SensorPressurePSIAEditFieldLabel.Text = 'Sensor Pressure (PSIA)';
 
             % Create SensorPressurePSIAEditField
@@ -992,18 +983,18 @@ classdef TestOneProject < matlab.apps.AppBase
             app.InitialVolumeFlowRateLPMEditField.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
             app.InitialVolumeFlowRateLPMEditField.Position = [188 34 60 22];
 
-            % Create SLMEditFieldLabel
-            app.SLMEditFieldLabel = uilabel(app.SetupPanel);
-            app.SLMEditFieldLabel.HorizontalAlignment = 'center';
-            app.SLMEditFieldLabel.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
-            app.SLMEditFieldLabel.Position = [151 10 30 15];
-            app.SLMEditFieldLabel.Text = 'SLM';
+            % Create SLPMEditFieldLabel
+            app.SLPMEditFieldLabel = uilabel(app.SetupPanel);
+            app.SLPMEditFieldLabel.HorizontalAlignment = 'center';
+            app.SLPMEditFieldLabel.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
+            app.SLPMEditFieldLabel.Position = [147 3 38 22];
+            app.SLPMEditFieldLabel.Text = 'SLPM';
 
-            % Create SLMEditField
-            app.SLMEditField = uieditfield(app.SetupPanel, 'numeric');
-            app.SLMEditField.Editable = 'off';
-            app.SLMEditField.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
-            app.SLMEditField.Position = [188 6 60 22];
+            % Create SLPMEditField
+            app.SLPMEditField = uieditfield(app.SetupPanel, 'numeric');
+            app.SLPMEditField.Editable = 'off';
+            app.SLPMEditField.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
+            app.SLPMEditField.Position = [188 6 60 22];
 
             % Create TotalFlowSettingsLabel
             app.TotalFlowSettingsLabel = uilabel(app.SetupPanel);
@@ -1014,34 +1005,37 @@ classdef TestOneProject < matlab.apps.AppBase
             app.TotalFlowSettingsLabel.Position = [481 64 131 18];
             app.TotalFlowSettingsLabel.Text = 'Total Flow Settings';
 
-            % Create SLMEditField_8Label
-            app.SLMEditField_8Label = uilabel(app.SetupPanel);
-            app.SLMEditField_8Label.HorizontalAlignment = 'right';
-            app.SLMEditField_8Label.VerticalAlignment = 'top';
-            app.SLMEditField_8Label.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
-            app.SLMEditField_8Label.Position = [580 10 30 15];
-            app.SLMEditField_8Label.Text = 'SLM';
+            % Create SLPMEditField_2Label
+            app.SLPMEditField_2Label = uilabel(app.SetupPanel);
+            app.SLPMEditField_2Label.HorizontalAlignment = 'right';
+            app.SLPMEditField_2Label.VerticalAlignment = 'top';
+            app.SLPMEditField_2Label.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
+            app.SLPMEditField_2Label.Position = [611 3 38 22];
+            app.SLPMEditField_2Label.Text = 'SLPM';
 
-            % Create SLMEditField_8
-            app.SLMEditField_8 = uieditfield(app.SetupPanel, 'numeric');
-            app.SLMEditField_8.Editable = 'off';
-            app.SLMEditField_8.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
-            app.SLMEditField_8.Position = [620 6 65 22];
+            % Create SLPMEditField_2
+            app.SLPMEditField_2 = uieditfield(app.SetupPanel, 'numeric');
+            app.SLPMEditField_2.Editable = 'off';
+            app.SLPMEditField_2.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
+            app.SLPMEditField_2.Position = [659 6 65 22];
 
             % Create InitialVolumeFlowRateTotalLPMLabel
             app.InitialVolumeFlowRateTotalLPMLabel = uilabel(app.SetupPanel);
             app.InitialVolumeFlowRateTotalLPMLabel.HorizontalAlignment = 'center';
+            app.InitialVolumeFlowRateTotalLPMLabel.FontWeight = 'bold';
             app.InitialVolumeFlowRateTotalLPMLabel.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
-            app.InitialVolumeFlowRateTotalLPMLabel.Position = [409 34 207 22];
-            app.InitialVolumeFlowRateTotalLPMLabel.Text = 'Initial Volume Flow Rate - Total (LPM)';
+            app.InitialVolumeFlowRateTotalLPMLabel.Position = [403 22 138 22];
+            app.InitialVolumeFlowRateTotalLPMLabel.Text = 'Inlet Flow Speed (cm/s)';
 
-            % Create InitialVolumeFlowRateTotalLPMSpinner
-            app.InitialVolumeFlowRateTotalLPMSpinner = uispinner(app.SetupPanel);
-            app.InitialVolumeFlowRateTotalLPMSpinner.Limits = [0 50];
-            app.InitialVolumeFlowRateTotalLPMSpinner.ValueChangedFcn = createCallbackFcn(app, @InitialVolumeFlowRateTotalLPMSpinnerValueChanged, true);
-            app.InitialVolumeFlowRateTotalLPMSpinner.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
-            app.InitialVolumeFlowRateTotalLPMSpinner.BackgroundColor = [0 1 1];
-            app.InitialVolumeFlowRateTotalLPMSpinner.Position = [620 34 66 22];
+            % Create InletFlowSpeedcmsSpinner
+            app.InletFlowSpeedcmsSpinner = uispinner(app.SetupPanel);
+            app.InletFlowSpeedcmsSpinner.Step = 0.1;
+            app.InletFlowSpeedcmsSpinner.Limits = [0 22];
+            app.InletFlowSpeedcmsSpinner.ValueDisplayFormat = '%.1f';
+            app.InletFlowSpeedcmsSpinner.ValueChangedFcn = createCallbackFcn(app, @InletFlowSpeedcmsSpinnerValueChanged, true);
+            app.InletFlowSpeedcmsSpinner.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
+            app.InletFlowSpeedcmsSpinner.BackgroundColor = [0 1 1];
+            app.InletFlowSpeedcmsSpinner.Position = [542 22 66 22];
 
             % Create SourceBGasDropDownLabel
             app.SourceBGasDropDownLabel = uilabel(app.SetupPanel);
@@ -1071,26 +1065,27 @@ classdef TestOneProject < matlab.apps.AppBase
             app.InitialVolumeFlowRateLPMEditField_2.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
             app.InitialVolumeFlowRateLPMEditField_2.Position = [1006 34 54 22];
 
-            % Create SLMEditField_12Label
-            app.SLMEditField_12Label = uilabel(app.SetupPanel);
-            app.SLMEditField_12Label.HorizontalAlignment = 'right';
-            app.SLMEditField_12Label.VerticalAlignment = 'top';
-            app.SLMEditField_12Label.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
-            app.SLMEditField_12Label.Position = [971 10 26 15];
-            app.SLMEditField_12Label.Text = 'SLM';
+            % Create SLPMEditField_3Label
+            app.SLPMEditField_3Label = uilabel(app.SetupPanel);
+            app.SLPMEditField_3Label.HorizontalAlignment = 'right';
+            app.SLPMEditField_3Label.VerticalAlignment = 'top';
+            app.SLPMEditField_3Label.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
+            app.SLPMEditField_3Label.Position = [959 3 38 22];
+            app.SLPMEditField_3Label.Text = 'SLPM';
 
-            % Create SLMEditField_12
-            app.SLMEditField_12 = uieditfield(app.SetupPanel, 'numeric');
-            app.SLMEditField_12.Editable = 'off';
-            app.SLMEditField_12.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
-            app.SLMEditField_12.Position = [1006 6 54 22];
+            % Create SLPMEditField_3
+            app.SLPMEditField_3 = uieditfield(app.SetupPanel, 'numeric');
+            app.SLPMEditField_3.Editable = 'off';
+            app.SLPMEditField_3.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
+            app.SLPMEditField_3.Position = [1006 6 54 22];
 
             % Create ChamberTemperatureCSpinnerLabel
             app.ChamberTemperatureCSpinnerLabel = uilabel(app.SetupPanel);
             app.ChamberTemperatureCSpinnerLabel.BackgroundColor = [0.9412 0.9412 0.9412];
             app.ChamberTemperatureCSpinnerLabel.HorizontalAlignment = 'center';
+            app.ChamberTemperatureCSpinnerLabel.FontWeight = 'bold';
             app.ChamberTemperatureCSpinnerLabel.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
-            app.ChamberTemperatureCSpinnerLabel.Position = [317 97 145 22];
+            app.ChamberTemperatureCSpinnerLabel.Position = [314 97 152 22];
             app.ChamberTemperatureCSpinnerLabel.Text = 'Chamber Temperature (C)';
 
             % Create ChamberTemperatureCSpinner
@@ -1099,7 +1094,7 @@ classdef TestOneProject < matlab.apps.AppBase
             app.ChamberTemperatureCSpinner.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
             app.ChamberTemperatureCSpinner.BackgroundColor = [0 1 1];
             app.ChamberTemperatureCSpinner.Position = [467 97 65 22];
-            app.ChamberTemperatureCSpinner.Value = 25;
+            app.ChamberTemperatureCSpinner.Value = 22;
 
             % Create FEditFieldLabel
             app.FEditFieldLabel = uilabel(app.SetupPanel);
@@ -1132,8 +1127,9 @@ classdef TestOneProject < matlab.apps.AppBase
             % Create ScaleWeightgEditFieldLabel
             app.ScaleWeightgEditFieldLabel = uilabel(app.SetupPanel);
             app.ScaleWeightgEditFieldLabel.HorizontalAlignment = 'center';
+            app.ScaleWeightgEditFieldLabel.FontWeight = 'bold';
             app.ScaleWeightgEditFieldLabel.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
-            app.ScaleWeightgEditFieldLabel.Position = [879 102 95 22];
+            app.ScaleWeightgEditFieldLabel.Position = [878 102 98 22];
             app.ScaleWeightgEditFieldLabel.Text = 'Scale Weight (g)';
 
             % Create ScaleWeightgEditField
@@ -1146,8 +1142,9 @@ classdef TestOneProject < matlab.apps.AppBase
             % Create OxygenConcentrationLabel
             app.OxygenConcentrationLabel = uilabel(app.SetupPanel);
             app.OxygenConcentrationLabel.HorizontalAlignment = 'center';
+            app.OxygenConcentrationLabel.FontWeight = 'bold';
             app.OxygenConcentrationLabel.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
-            app.OxygenConcentrationLabel.Position = [830 130 146 22];
+            app.OxygenConcentrationLabel.Position = [825 130 156 22];
             app.OxygenConcentrationLabel.Text = 'Oxygen Concentration (%)';
 
             % Create OxygenConcentrationEditField
@@ -1156,6 +1153,17 @@ classdef TestOneProject < matlab.apps.AppBase
             app.OxygenConcentrationEditField.Editable = 'off';
             app.OxygenConcentrationEditField.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
             app.OxygenConcentrationEditField.Position = [980 130 80 23];
+
+            % Create LPMEditFieldLabel
+            app.LPMEditFieldLabel = uilabel(app.SetupPanel);
+            app.LPMEditFieldLabel.HorizontalAlignment = 'right';
+            app.LPMEditFieldLabel.Position = [619 34 30 22];
+            app.LPMEditFieldLabel.Text = 'LPM';
+
+            % Create LPMEditField
+            app.LPMEditField = uieditfield(app.SetupPanel, 'numeric');
+            app.LPMEditField.Editable = 'off';
+            app.LPMEditField.Position = [659 34 65 22];
 
             % Create ReferencesPanel
             app.ReferencesPanel = uipanel(app.TestOneGUI);
@@ -1196,7 +1204,7 @@ classdef TestOneProject < matlab.apps.AppBase
             app.ReferenceTemperatureCSpinner.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
             app.ReferenceTemperatureCSpinner.BackgroundColor = [0 1 1];
             app.ReferenceTemperatureCSpinner.Position = [167 41 82 22];
-            app.ReferenceTemperatureCSpinner.Value = 25;
+            app.ReferenceTemperatureCSpinner.Value = 22;
 
             % Create DensityCorrectionFactorEditFieldLabel
             app.DensityCorrectionFactorEditFieldLabel = uilabel(app.ReferencesPanel);
@@ -1535,17 +1543,18 @@ classdef TestOneProject < matlab.apps.AppBase
             % Create IgniteButton
             app.IgniteButton = uibutton(app.ControlsPanel, 'push');
             app.IgniteButton.ButtonPushedFcn = createCallbackFcn(app, @IgniteButtonPushed, true);
-            app.IgniteButton.BackgroundColor = [0.8 0.8 0.8];
+            app.IgniteButton.BackgroundColor = [1 0.4118 0.1608];
             app.IgniteButton.FontWeight = 'bold';
             app.IgniteButton.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
-            app.IgniteButton.Position = [19 10 184 23];
+            app.IgniteButton.Position = [20 10 81 22];
             app.IgniteButton.Text = 'Ignite';
 
             % Create IgnitionTimesSpinnerLabel
             app.IgnitionTimesSpinnerLabel = uilabel(app.ControlsPanel);
             app.IgnitionTimesSpinnerLabel.HorizontalAlignment = 'center';
+            app.IgnitionTimesSpinnerLabel.FontWeight = 'bold';
             app.IgnitionTimesSpinnerLabel.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
-            app.IgnitionTimesSpinnerLabel.Position = [221 10 94 22];
+            app.IgnitionTimesSpinnerLabel.Position = [237 10 97 22];
             app.IgnitionTimesSpinnerLabel.Text = 'Ignition Time (s)';
 
             % Create IgnitionTimesSpinner
@@ -1553,7 +1562,7 @@ classdef TestOneProject < matlab.apps.AppBase
             app.IgnitionTimesSpinner.ValueChangedFcn = createCallbackFcn(app, @IgnitionTimesSpinnerValueChanged, true);
             app.IgnitionTimesSpinner.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
             app.IgnitionTimesSpinner.BackgroundColor = [0 1 1];
-            app.IgnitionTimesSpinner.Position = [316 10 68 22];
+            app.IgnitionTimesSpinner.Position = [335 10 49 22];
             app.IgnitionTimesSpinner.Value = 10;
 
             % Create ConnectO2SensorButton
@@ -1564,6 +1573,19 @@ classdef TestOneProject < matlab.apps.AppBase
             app.ConnectO2SensorButton.FontColor = [0.129411764705882 0.129411764705882 0.129411764705882];
             app.ConnectO2SensorButton.Position = [144 44 120 22];
             app.ConnectO2SensorButton.Text = 'Connect O2 Sensor';
+
+            % Create CurrentAEditFieldLabel
+            app.CurrentAEditFieldLabel = uilabel(app.ControlsPanel);
+            app.CurrentAEditFieldLabel.HorizontalAlignment = 'right';
+            app.CurrentAEditFieldLabel.FontWeight = 'bold';
+            app.CurrentAEditFieldLabel.Position = [109 10 68 22];
+            app.CurrentAEditFieldLabel.Text = 'Current (A)';
+
+            % Create CurrentAEditField
+            app.CurrentAEditField = uieditfield(app.ControlsPanel, 'numeric');
+            app.CurrentAEditField.ValueDisplayFormat = '%.1f';
+            app.CurrentAEditField.Editable = 'off';
+            app.CurrentAEditField.Position = [184 10 43 22];
 
             % Create PressurePanel
             app.PressurePanel = uipanel(app.TestOneGUI);
