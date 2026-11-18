@@ -16,6 +16,7 @@ void setup()
 {
   Serial.begin(9600); //Open serial port and I2C communication with ADC
   ads1115.begin();
+  ads1115.setGain(GAIN_TWO); //Set ADC gain
 
   srv.attach(servo); // Set pin for servo and home motor
   srv.write(retract);
@@ -50,7 +51,6 @@ void loop()
       srv.write(retract);
     }
 
-  ads1115.setGain(GAIN_TWO); //Set ADC gain
   Serial.println(ads1115.readADC_SingleEnded(0)); //Prints raw data to serial port to be read by GUI
 }
 
